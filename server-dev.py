@@ -10,12 +10,13 @@ import websockets as ws
 
 # Defining Functions
 async def echo(sock, port):  # A simple echo function currently included for testing reasons
+    print("Listening on port: %s" % port)
     msg = await sock.recv()
     print("I have received %s" % msg)
     await sock.send(msg)
 
 # Initialize the Config Parser&Fetch Globals
-global portIn; portIn = 5050 #The incoming port, currently defined hardcoded for testing, will be configurable var
+global portIn; portIn = 5050 # The incoming port, currently defined hardcoded for testing, will be configurable var
 
 # Runtime Time
 start_server = ws.serve(echo, 'localhost', portIn) #The server will always be listening for incoming commands so it can listen on localhost
