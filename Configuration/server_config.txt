@@ -1,0 +1,7 @@
+[Game Information]
+Game Name: Tarnished Tale POC
+
+
+
+[Network Configuration]
+Incoming Port: 5050
