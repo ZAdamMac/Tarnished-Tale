@@ -39,6 +39,17 @@ if __name__ == '__main__':  # We also need to set up a manager process and a nam
 
     ns.title = baseConfig.get("Game Information", "Game Name")
     ns.portIn = baseConfig.get("Network Configuration", "Incoming Port")
+    ns.dictKnownCommands = {}  # establishes an empty dictionary for commands and their corresponding "category"
+
+    for foo, bar, files in os.walk(abspathModDats):  # crawls the module files looking for their command info.
+        for file in files:
+            moduleConfig.read(os.path.join(foo,file))
+            if moduleConfig.has_section("Additional Commands"):
+                for options in moduleConfig.options("Additional Commands"):
+                    for option in options:
+                        ns.dictKnownCommands.update(
+                            str(option)+":"+str(moduleConfig.get("Additional Commands", option))
+                        )
 
 # Runtime Time
 start_server = ws.serve(serve, 'localhost', ns.portIn)
