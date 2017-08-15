@@ -1,2 +1,17 @@
-# .dat files like this one are used by Tarnished Tale to tell the core engine about any module that
+# .dat files like this one are used by Tarnished Tale to tell the server about any module that
 # might be present, including the Core Module.
+
+[Additional Commands]
+#The Additional Commands section is added to the dictKnownCommands on the server and is used in process management.
+say : chat
+yell : chat
+global : chat
+kill : combat
+throw : combat
+shoot : combat
+go : movement
+look : movement
+warp : movement
+login : system
+quit : system
+register : system
