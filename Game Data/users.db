@@ -1,0 +1,2 @@
+#A simple Pickle which serves as a store of users and their credentials
+#usernames are stored in the plain, but passwords are bcrypt-salted hashes
