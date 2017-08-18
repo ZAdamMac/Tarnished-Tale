@@ -32,11 +32,14 @@ async def categorize(rx, sock): #TODO testing only, should refactor and tweak in
     if catRX is not None:
         tx = str("That request belongs to the %s category!" % catRX)
         await taskTx(sock, tx)
+        return
     elif catRX is "system":
         await taskSys(rx, sock)  # refers to an as-yet unimplemented JoinableQueue
+        return
     else:
         tx = str("I don't know how to do that!")
         await taskTx(sock, tx)
+        return
 
 def announce():
     # TODO implement a screen clear here.
@@ -55,10 +58,12 @@ async def taskSys(message, requester):
         if usersDB.has_option("Users", contents[1]):  #  Prevent overwrite of existing user entries
             print("Request cannot be completed - existing user.")
             await taskTx(session, "This user already exists. Please change usernames and try again.")
+            return
         else:  # The user doesn't exist so let's add it
             salted = bcrypt.hashpw(bin(contents[2]), bcrypt.gensalt())
             usersDB.set("Users", contents[1], salted)
             await taskTx(session, "Your registration was successful. Please record your password for future reference.")
+            return
     elif operation == "login":  # expects "login user pass"
         print("%s is attempting to log in as %s" % (session, contents[1]))
         try:
@@ -69,20 +74,25 @@ async def taskSys(message, requester):
             sessions.update(dict({session:contents[1]}))
             welcome = str("You are now %s" % contents[1])
             await taskTx(session, welcome)
+            return
         else:
             await taskTx(session, "Login Failed")  #Purposefully vague status
+            return
     elif operation == "quit":
         tgt = sessions[session]
         del sessions[sessions]
         print("%s has quit" % tgt)
         taskTx(session, b"200")  # 200 closes connection "at client request".
+        return
 
 async def taskTx(sock, message):  # a poor implementation of an output coroutine.
     if message == b"200":
         sock.send("Goodbye.")
         sock.close()
+        return
     else:
         sock.send(message)
+        return
 
 
 # Initialize the Config Parser&Fetch Globals, Build Queues, all that stuff
