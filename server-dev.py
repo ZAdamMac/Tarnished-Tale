@@ -8,68 +8,12 @@ version = "DevBuild"
 import asyncio
 import bcrypt
 import configparser
-import multiprocessing as mp
 import os
 import websockets as ws
 
 
 # Defining Principal Classes
-class taskSys(object):
-    def __init__(self, message, requester):
-        self.msg = message
-        self.contents = message.split(" ")
-        self.operation = self.contents[0].lower()
-        self.session = requester
 
-    def __call__(self):
-        if self.operation == "register":  # expects "register user pass"
-            print("%s is requesting to add user %s to the game." % self.session, self.contents[1])
-            salted = bcrypt.hashpw(bin(self.contents[2]), bcrypt.gensalt())
-            usersDB.set("Users", self.contents[1], salted)
-            output.put(taskTx(self.session, "Your registration was successful. Please record your password for future reference."))
-        elif self.operation == "login":  # expects "login user pass"
-            print("%s is attempting to log in as %s" % self.session, self.contents[1])
-            pwdExpected = usersDB.get("Users", self.session[1])
-            if bcrypt.checkpw(self.contents[2], pwdExpected):
-                sessions.update(dict({self.session:self.contents[1]}))
-                welcome = str("You are now %s" % self.contents[1])
-                output.put(taskTx(self.session, welcome))
-            else:
-                output.put(taskTx(self.session, "Login Failed"))
-        elif self.operation == "quit":
-            for user, remote in sessions:
-                if remote == self.session:
-                    tgt = user
-            del sessions[tgt]
-            print("%s has quit" % tgt)
-            output.put(taskTx(self.session, b"200"))  # 200 closes connection "at client request".
-
-class taskTx(object):
-    def __init__(self, sock, message):
-        self.sock = sock
-        self.message = message
-
-    def __call__(self):
-        if self.message == b"200":
-            self.sock.send("Goodbye.")
-            self.sock.close()
-        else:
-            self.sock.send(self.message)
-
-class intProc(mp.Process):
-    def __init__(self, queue):
-        mp.Process.__init__(self)
-        self.qTask = queue
-
-    def run(self):
-        while True:
-            next_task = self.qTask.get()
-            if next_task is None:
-                self.qTask.task_done()
-                break
-            next_task()
-            self.qTask.task_done()
-        return
 
 # Defining Functions
 async def serveIn(sock, port):  # The basic runtime of the entire server goes into this function.
@@ -79,7 +23,7 @@ async def serveIn(sock, port):  # The basic runtime of the entire server goes in
         msg = await sock.recv()
         categorize(msg, sock)
 
-def categorize(rx, sock): #TODO testing only, should refactor and tweak in next build
+async def categorize(rx, sock): #TODO testing only, should refactor and tweak in next build
     contentsRX = rx.split(" ")
     try:
         catRX = ns.dictKnownCommands[contentsRX[0]]
@@ -87,18 +31,58 @@ def categorize(rx, sock): #TODO testing only, should refactor and tweak in next 
         catRX = None
     if catRX is not None:
         tx = str("That request belongs to the %s category!" % catRX)
-        output.put(taskTx(sock, tx))
+        await taskTx(sock, tx)
     elif catRX is "system":
-        pending.put(taskSys(rx, sock))  # refers to an as-yet unimplemented JoinableQueue
+        await taskSys(rx, sock)  # refers to an as-yet unimplemented JoinableQueue
     else:
         tx = str("I don't know how to do that!")
-        output.put(taskTx(sock, tx))
+        await taskTx(sock, tx)
 
 def announce():
     # TODO implement a screen clear here.
     print("Welcome to Tarnished Tale Server %s" % version)
     print("Currently hosting %s" % ns.title)
     print("Expecting connections on port %s" % ns.portIn)
+
+async def taskSys(message, requester):
+    msg = message
+    contents = message.split(" ")
+    operation = self.contents[0].lower()
+    session = requester
+
+    if operation == "register":  # expects "register user pass"
+        print("%s is requesting to add user %s to the game." % (session, contents[1]))
+        if usersDB.has_option("Users", contents[1]):  #  Prevent overwrite of existing user entries
+            print("Request cannot be completed - existing user.")
+            await taskTx(session, "This user already exists. Please change usernames and try again.")
+        else:  # The user doesn't exist so let's add it
+            salted = bcrypt.hashpw(bin(contents[2]), bcrypt.gensalt())
+            usersDB.set("Users", contents[1], salted)
+            await taskTx(session, "Your registration was successful. Please record your password for future reference.")
+    elif operation == "login":  # expects "login user pass"
+        print("%s is attempting to log in as %s" % (session, contents[1]))
+        try:
+            pwdExpected = usersDB.get("Users", contents[1])
+        except configparser.NoOptionError:
+            pwdExpected = 0
+        if bcrypt.checkpw(contents[2], pwdExpected):
+            sessions.update(dict({session:contents[1]}))
+            welcome = str("You are now %s" % contents[1])
+            await taskTx(session, welcome)
+        else:
+            await taskTx(session, "Login Failed")  #Purposefully vague status
+    elif operation == "quit":
+        del sessions[sessions]
+        print("%s has quit" % tgt)
+        taskTx(self.session, b"200")  # 200 closes connection "at client request".
+
+async def taskTx(sock, message):  # a poor implementation of an output coroutine.
+    if message == b"200":
+        sock.send("Goodbye.")
+        sock.close()
+    else:
+        sock.send(message)
+
 
 # Initialize the Config Parser&Fetch Globals, Build Queues, all that stuff
 abspathHome = os.getcwd()
@@ -136,21 +120,6 @@ if __name__ == '__main__':  # We also need to set up a manager process and a nam
                     knownCommands.update(newEntry)
 
     ns.dictKnownCommands = knownCommands.copy()
-
-    global pending
-    pending = mp.JoinableQueue()
-    global output
-    output = mp.JoinableQueue()
-    internalWorkers = []
-    transmitters = []
-    for i in range(os.cpu_count()):
-        internalWorkers.append(intProc(pending))
-    for i in range(os.cpu_count()):
-        transmitters.append(intProc(output))
-    for w in internalWorkers:
-        w.start()
-    for w in transmitters:
-        w.start()
 
 # Runtime Time
     announce()
