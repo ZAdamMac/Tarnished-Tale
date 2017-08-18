@@ -18,15 +18,15 @@ import websockets as ws
 # Defining Functions
 async def serveIn(sock, port):  # The basic runtime of the entire server goes into this function.
     print("New Connection by %r at %s" % (sock, port))
-    await sock.send("Welcome to %s" % ns.title)
+    await sock.send("Welcome to %s" % title)
     while True:  # This is stupid, never do this.
         msg = await sock.recv()
-        categorize(msg, sock)
+        await categorize(msg, sock)
 
 async def categorize(rx, sock): #TODO testing only, should refactor and tweak in next build
     contentsRX = rx.split(" ")
     try:
-        catRX = ns.dictKnownCommands[contentsRX[0]]
+        catRX = knownCommands[contentsRX[0]]
     except KeyError:
         catRX = None
     if catRX is not None:
@@ -41,13 +41,13 @@ async def categorize(rx, sock): #TODO testing only, should refactor and tweak in
 def announce():
     # TODO implement a screen clear here.
     print("Welcome to Tarnished Tale Server %s" % version)
-    print("Currently hosting %s" % ns.title)
-    print("Expecting connections on port %s" % ns.portIn)
+    print("Currently hosting %s" % title)
+    print("Expecting connections on port %s" % portIn)
 
 async def taskSys(message, requester):
     msg = message
     contents = message.split(" ")
-    operation = self.contents[0].lower()
+    operation = contents[0].lower()
     session = requester
 
     if operation == "register":  # expects "register user pass"
@@ -72,9 +72,10 @@ async def taskSys(message, requester):
         else:
             await taskTx(session, "Login Failed")  #Purposefully vague status
     elif operation == "quit":
+        tgt = sessions[session]
         del sessions[sessions]
         print("%s has quit" % tgt)
-        taskTx(self.session, b"200")  # 200 closes connection "at client request".
+        taskTx(session, b"200")  # 200 closes connection "at client request".
 
 async def taskTx(sock, message):  # a poor implementation of an output coroutine.
     if message == b"200":
@@ -98,31 +99,25 @@ usersDB.read(os.path.join(abspathHome, "Game Data/users.db"))
 moduleConfig = configparser.ConfigParser()
 # This reader will need to iterate over any and all .dat files in the Configuration/Module Files dir and integrate them
 # into one namespace
-global ns
+sessions = {}
 
-if __name__ == '__main__':  # We also need to set up a manager process and a namespace for future builds
-    manager = mp.Manager()
-    ns = manager.Namespace()
-    sessions = manager.dict()
+title = baseConfig.get("Game Information", "Game Name")
+portIn = baseConfig.get("Network Configuration", "Incoming Port")
 
-    ns.title = baseConfig.get("Game Information", "Game Name")
-    ns.portIn = baseConfig.get("Network Configuration", "Incoming Port")
+knownCommands = {}
+for foo, bar, files in os.walk(abspathModDats):  # crawls the module files looking for their command info.
+    for file in files:
+        moduleConfig.read(os.path.join(foo, file))
+        if moduleConfig.has_section("Additional Commands"):
+            options = moduleConfig.options("Additional Commands")
+            for option in options:
+                foo = moduleConfig.get("Additional Commands", option)
+                newEntry = dict({str(option):str(foo)})
+                knownCommands.update(newEntry)
 
-    knownCommands = {}
-    for foo, bar, files in os.walk(abspathModDats):  # crawls the module files looking for their command info.
-        for file in files:
-            moduleConfig.read(os.path.join(foo, file))
-            if moduleConfig.has_section("Additional Commands"):
-                options = moduleConfig.options("Additional Commands")
-                for option in options:
-                    foo = moduleConfig.get("Additional Commands", option)
-                    newEntry = dict({str(option):str(foo)})
-                    knownCommands.update(newEntry)
-
-    ns.dictKnownCommands = knownCommands.copy()
 
 # Runtime Time
     announce()
-    start_server = ws.serve(serveIn, 'localhost', ns.portIn)
+    start_server = ws.serve(serveIn, 'localhost', portIn)
     asyncio.get_event_loop().run_until_complete(start_server)
     asyncio.get_event_loop().run_forever()
