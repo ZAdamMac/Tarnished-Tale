@@ -20,21 +20,23 @@ async def serveIn(sock, port):  # The basic runtime of the entire server goes in
     print("New Connection by %r at %s" % (sock, port))
     await sock.send("Welcome to %s" % title)
     while True:  # This is stupid, never do this.
+        print("Awaiting new Message")  # Todo Del
         msg = await sock.recv()
         response = await categorize(msg, sock)
-        go = await taskTx(sock, response)
+        await taskTx(sock, response)
 
-async def categorize(rx, sock): #TODO testing only, should refactor and tweak in next build
+async def categorize(rx, sock):  # TODO testing only, should refactor and tweak in next build
+    print("Made it to Categorize")  # Todo Del
     contentsRX = rx.split(" ")
     try:
         catRX = knownCommands[contentsRX[0]]
     except KeyError:
         catRX = None
-    if catRX is not None:
-        tx = str("That request belongs to the %s category!" % catRX)
-        return tx
-    elif catRX is "system":
+    if catRX == "system":
         tx = await taskSys(rx, sock)  # refers to an as-yet unimplemented JoinableQueue
+        return tx
+    elif catRX is not None:
+        tx = str("That request belongs to the %s category!" % catRX)
         return tx
     else:
         tx = str("I don't know how to do that!")
@@ -47,6 +49,7 @@ def announce():
     print("Expecting connections on port %s" % portIn)
 
 async def taskSys(message, requester):
+    print("Made it to TaskSys")
     msg = message
     contents = msg.split(" ")
     operation = contents[0].lower()
@@ -59,17 +62,23 @@ async def taskSys(message, requester):
             tx = "This user already exists. Please change usernames and try again."
             return tx
         else:  # The user doesn't exist so let's add it
-            salted = bcrypt.hashpw(bin(contents[2]), bcrypt.gensalt())
-            usersDB.set("Users", contents[1], salted)
+            salted = bcrypt.hashpw(contents[2].encode('utf8'), bcrypt.gensalt())
+            salted = str(salted)
+            strip1 = salted.lstrip("b'")
+            strip2 = strip1.rstrip("'")
+            salted = strip2
+            usersDB.set("Users", contents[1], str(salted))
+            with open(os.path.join(abspathHome, "Game Data/users.db"), "w") as db:
+                usersDB.write(db)
             tx = "Your registration was successful. Please record your password for future reference."
             return tx
     elif operation == "login":  # expects "login user pass"
         print("%s is attempting to log in as %s" % (session, contents[1]))
         try:
-            pwdExpected = usersDB.get("Users", contents[1])
+            pwdExpected = usersDB.get("Users", contents[1]).encode("utf8")
         except configparser.NoOptionError:
             pwdExpected = 0
-        if bcrypt.checkpw(contents[2], pwdExpected):
+        if bcrypt.checkpw(contents[2].encode('utf8'), pwdExpected):
             sessions.update(dict({session:contents[1]}))
             welcome = str("You are now %s" % contents[1])
             tx = welcome
@@ -81,16 +90,17 @@ async def taskSys(message, requester):
         tgt = sessions[session]
         del sessions[session]
         print("%s has quit" % tgt)
-        tx = b"200")  # 200 closes connection "at client request".
+        tx = b"200"  # 200 closes connection "at client request".
         return tx
 
 async def taskTx(sock, message):  # a poor implementation of an output coroutine.
+    print("Made it to taskTX")
     if message == b"200":
-        sock.send("Goodbye.")
-        sock.close()
+        await sock.send("Goodbye.")
+        await sock.close()
         return
     else:
-        sock.send(message)
+        await sock.send(message)
         return
 
 
@@ -103,7 +113,7 @@ baseConfig = configparser.ConfigParser()   # We need several parsers. This one w
 baseConfig.read(abspathBaseConfig)
 
 usersDB = configparser.ConfigParser()  # TODO implement salted storage
-usersDB.read(os.path.join(abspathHome, "Game Data/users.db"))
+usersDB.read(os.path.join(abspathHome, "Game Data/users.db"), encoding="utf8")
 
 moduleConfig = configparser.ConfigParser()
 # This reader will need to iterate over any and all .dat files in the Configuration/Module Files dir and integrate them
@@ -130,3 +140,4 @@ for foo, bar, files in os.walk(abspathModDats):  # crawls the module files looki
     start_server = ws.serve(serveIn, 'localhost', portIn)
     asyncio.get_event_loop().run_until_complete(start_server)
     asyncio.get_event_loop().run_forever()
+# Todo need a graceful shutdown method to save the users db
