@@ -21,7 +21,8 @@ async def serveIn(sock, port):  # The basic runtime of the entire server goes in
     await sock.send("Welcome to %s" % title)
     while True:  # This is stupid, never do this.
         msg = await sock.recv()
-        await categorize(msg, sock)
+        response = await categorize(msg, sock)
+        go = await taskTx(sock, response)
 
 async def categorize(rx, sock): #TODO testing only, should refactor and tweak in next build
     contentsRX = rx.split(" ")
@@ -31,15 +32,13 @@ async def categorize(rx, sock): #TODO testing only, should refactor and tweak in
         catRX = None
     if catRX is not None:
         tx = str("That request belongs to the %s category!" % catRX)
-        await taskTx(sock, tx)
-        return
+        return tx
     elif catRX is "system":
-        await taskSys(rx, sock)  # refers to an as-yet unimplemented JoinableQueue
-        return
+        tx = await taskSys(rx, sock)  # refers to an as-yet unimplemented JoinableQueue
+        return tx
     else:
         tx = str("I don't know how to do that!")
-        await taskTx(sock, tx)
-        return
+        return tx
 
 def announce():
     # TODO implement a screen clear here.
@@ -49,7 +48,7 @@ def announce():
 
 async def taskSys(message, requester):
     msg = message
-    contents = message.split(" ")
+    contents = msg.split(" ")
     operation = contents[0].lower()
     session = requester
 
@@ -57,13 +56,13 @@ async def taskSys(message, requester):
         print("%s is requesting to add user %s to the game." % (session, contents[1]))
         if usersDB.has_option("Users", contents[1]):  #  Prevent overwrite of existing user entries
             print("Request cannot be completed - existing user.")
-            await taskTx(session, "This user already exists. Please change usernames and try again.")
-            return
+            tx = "This user already exists. Please change usernames and try again."
+            return tx
         else:  # The user doesn't exist so let's add it
             salted = bcrypt.hashpw(bin(contents[2]), bcrypt.gensalt())
             usersDB.set("Users", contents[1], salted)
-            await taskTx(session, "Your registration was successful. Please record your password for future reference.")
-            return
+            tx = "Your registration was successful. Please record your password for future reference."
+            return tx
     elif operation == "login":  # expects "login user pass"
         print("%s is attempting to log in as %s" % (session, contents[1]))
         try:
@@ -73,17 +72,17 @@ async def taskSys(message, requester):
         if bcrypt.checkpw(contents[2], pwdExpected):
             sessions.update(dict({session:contents[1]}))
             welcome = str("You are now %s" % contents[1])
-            await taskTx(session, welcome)
-            return
+            tx = welcome
+            return tx
         else:
-            await taskTx(session, "Login Failed")  #Purposefully vague status
-            return
+            tx = "Login Failed"  #Purposefully vague status
+            return tx
     elif operation == "quit":
         tgt = sessions[session]
-        del sessions[sessions]
+        del sessions[session]
         print("%s has quit" % tgt)
-        taskTx(session, b"200")  # 200 closes connection "at client request".
-        return
+        tx = b"200")  # 200 closes connection "at client request".
+        return tx
 
 async def taskTx(sock, message):  # a poor implementation of an output coroutine.
     if message == b"200":
