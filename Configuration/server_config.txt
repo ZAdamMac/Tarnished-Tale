@@ -5,3 +5,4 @@ Game Name: Tarnished Tale POC
 
 [Network Configuration]
 Incoming Port: 5050
+TLS: True

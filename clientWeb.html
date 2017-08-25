@@ -4,7 +4,7 @@
 
 <html>
     <head>
-        <title>Echo Chamber</title>
+        <title>TT Test Client</title>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width">
     </head>
@@ -35,7 +35,7 @@
                     return;
                 }
                 // Create a new instance of the websocket
-                webSocket = new WebSocket("ws://localhost:5050/EchoChamber/echo");
+                webSocket = new WebSocket("wss://localhost:5050/EchoChamber/echo");
 
                 /**
                  * Binds functions to the listeners for the websocket.
