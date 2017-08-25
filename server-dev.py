@@ -108,7 +108,7 @@ def startSSL():  # Start SSL Context by fetching some requisite items from the c
     if baseConfig.getboolean("Network Configuration", "TLS") is True:
         global ctx
         fCert = os.path.join(abspathHome, "Configuration/ssl_cert.pem")
-        fKey = os.path.join(abspathHome, "Configuration/ssl_key.key")  # Todo find out what the default extension for this actually is
+        fKey = os.path.join(abspathHome, "Configuration/ssl_key.pem")  # Todo find out what the default extension for this actually is
         ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
         ctx.load_cert_chain(certfile=fCert, keyfile=fKey)
 
@@ -147,7 +147,7 @@ for foo, bar, files in os.walk(abspathModDats):  # crawls the module files looki
 # Runtime Time
     announce()
     startSSL()
-    if baseConfig.getboolean("Network Config", "TLS") is True:
+    if baseConfig.getboolean("Network Configuration", "TLS") is True:
         start_server = ws.serve(serveIn, 'localhost', portIn, ssl=ctx)
     else:
         start_server = ws.serve(serveIn, 'localhost', portIn)
