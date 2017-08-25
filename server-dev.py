@@ -18,7 +18,7 @@ import websockets as ws
 
 # Defining Functions
 async def serveIn(sock, port):  # The basic runtime of the entire server goes into this function.
-    print("New Connection by %r at %s" % (sock, port))
+    print("New Connection by %s:%s" % (sock.remote_address[0], sock.remote_address[1]))
     await sock.send("Welcome to %s" % title)
     while True:  # This is stupid, never do this.
         print("Awaiting new Message")  # Todo Del
@@ -57,7 +57,7 @@ async def taskSys(message, requester):
     session = requester
 
     if operation == "register":  # expects "register user pass"
-        print("%s is requesting to add user %s to the game." % (session, contents[1]))
+        print("%s is requesting to add user %s to the game." % (session.remote_address[0], contents[1]))
         if usersDB.has_option("Users", contents[1]):  #  Prevent overwrite of existing user entries
             print("Request cannot be completed - existing user.")
             tx = "This user already exists. Please change usernames and try again."
@@ -74,7 +74,7 @@ async def taskSys(message, requester):
             tx = "Your registration was successful. Please record your password for future reference."
             return tx
     elif operation == "login":  # expects "login user pass"
-        print("%s is attempting to log in as %s" % (session, contents[1]))
+        print("%s is attempting to log in as %s" % (session.remote_address[0], contents[1]))
         try:
             pwdExpected = usersDB.get("Users", contents[1]).encode("utf8")
         except configparser.NoOptionError:
@@ -107,8 +107,8 @@ async def taskTx(sock, message):  # a poor implementation of an output coroutine
 def startSSL():  # Start SSL Context by fetching some requisite items from the config files, if so configured
     if baseConfig.getboolean("Network Configuration", "TLS") is True:
         global ctx
-        fCert = os.path.join(abspathHome, "Configuration/ssl_cert.pem")
-        fKey = os.path.join(abspathHome, "Configuration/ssl_key.pem")  # Todo find out what the default extension for this actually is
+        fCert = os.path.join(abspathHome, "Configuration/server.pem")
+        fKey = os.path.join(abspathHome, "Configuration/server.pem")  # Todo find out what the default extension for this actually is
         ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
         ctx.load_cert_chain(certfile=fCert, keyfile=fKey)
 
