@@ -80,7 +80,11 @@ async def taskSys(message, requester):
         except configparser.NoOptionError:
             pwdExpected = 0
         if bcrypt.checkpw(contents[2].encode('utf8'), pwdExpected):
-            sessions.update(dict({session:contents[1]}))
+            for user in sessions:  # Checks for an existing session logged in under that name
+                if user == contents[1]:
+                    tx = "Login failed"
+                    return tx
+            sessions.update(dict({contents[1]:session}))
             welcome = str("You are now %s" % contents[1])
             tx = welcome
             return tx
