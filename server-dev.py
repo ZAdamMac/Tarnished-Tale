@@ -19,15 +19,13 @@ import websockets as ws
 # Defining Functions
 async def serveIn(sock, port):  # The basic runtime of the entire server goes into this function.
     print("New Connection by %s:%s" % (sock.remote_address[0], sock.remote_address[1]))
-    await sock.send("Welcome to %s" % title)
+    await sock.send("Welcome to %s" % title) # TODO Generalize, call from config
     while True:  # This is stupid, never do this.
-        print("Awaiting new Message")  # Todo Del
         msg = await sock.recv()
         response = await categorize(msg, sock)
         await taskTx(sock, response)
 
 async def categorize(rx, sock):  # TODO testing only, should refactor and tweak in next build
-    print("Made it to Categorize")  # Todo Del
     contentsRX = rx.split(" ")
     try:
         catRX = knownCommands[contentsRX[0]]
@@ -64,11 +62,11 @@ async def taskSys(message, requester):
             return tx
         else:  # The user doesn't exist so let's add it
             salted = bcrypt.hashpw(contents[2].encode('utf8'), bcrypt.gensalt())
-            salted = str(salted)
+            salted = str(salted) # The next several lines are necessary or the salt/pw store is broken when read from config
             strip1 = salted.lstrip("b'")
             strip2 = strip1.rstrip("'")
             salted = strip2
-            usersDB.set("Users", contents[1], str(salted))
+            usersDB.set("Users", contents[1], str(salted)) #Stripping in this way before setting allows the value to be read back normally later
             with open(os.path.join(abspathHome, "Game Data/users.db"), "w") as db:
                 usersDB.write(db)
             tx = "Your registration was successful. Please record your password for future reference."
@@ -112,7 +110,7 @@ def startSSL():  # Start SSL Context by fetching some requisite items from the c
     if baseConfig.getboolean("Network Configuration", "TLS") is True:
         global ctx
         fCert = os.path.join(abspathHome, "Configuration/server.pem")
-        fKey = os.path.join(abspathHome, "Configuration/server.pem")  # Todo find out what the default extension for this actually is
+        fKey = os.path.join(abspathHome, "Configuration/server.pem")
         ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
         ctx.load_cert_chain(certfile=fCert, keyfile=fKey)
 
@@ -125,7 +123,7 @@ abspathModDats = os.path.join(abspathHome, "Configuration/Module Files")
 baseConfig = configparser.ConfigParser()   # We need several parsers. This one will handle the basic config file.
 baseConfig.read(abspathBaseConfig)
 
-usersDB = configparser.ConfigParser()  # TODO implement salted storage
+usersDB = configparser.ConfigParser()
 usersDB.read(os.path.join(abspathHome, "Game Data/users.db"), encoding="utf8")
 
 moduleConfig = configparser.ConfigParser()
