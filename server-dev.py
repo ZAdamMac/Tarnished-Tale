@@ -8,6 +8,7 @@ version = "DevBuild"
 import asyncio
 import bcrypt
 import configparser
+import datetime
 import os
 import ssl
 import websockets as ws
@@ -85,6 +86,16 @@ async def taskSys(message, requester):
                 if user == contents[1]:
                     tx = "Login failed"
                     return tx
+            if usersDB.has_option("Banned", contents[1]):
+                lifted = usersDB.getfloat("Banned", contents[1])
+                now = datetime.datetime.now().timestamp()
+                if lifted >= now:
+                    usersDB.remove_option("Banned", contents[1])
+                    with open(os.path.join(abspathHome, "Game Data/users.db"), "w") as f:
+                        usersDB.write(f)
+                else:
+                    tx = "Login Failed"
+                    return tx
             sessions.update(dict({contents[1]:session}))
             welcome = str("You are now %s" % contents[1])
             tx = welcome
@@ -109,14 +120,22 @@ async def taskAdmin(message, sock):  # Handles messages from the admin console s
     else:
         if msg[1] == "shutdown":  # Implements graceful shutdown!
             tx = await dieGracefully(bashed)
+            return tx
         elif msg[1] == "fetch":
             pass
         elif msg[1] == "logging":  # Drop to a logging configuration editor
             pass
         elif msg[1] == "kick":  # Kick a player
-            pass
+            tx = await sysKick(msg[2], msg[3], msg[4], msg[5])
+            return tx
         elif msg[1] == "chpwd":  # Change a user's password
             pass
+        elif msg[1] == "unban":  # Remove a user ban
+            pass
+        elif msg[1] == "quit":  # Disconnects the console and clears the admin socket
+            sockAdmin = None
+            tx = b"200"
+            return tx
         else:
             tx = "Unrecognized Administrative Command"
 
@@ -125,21 +144,22 @@ async def authAdmin(message, sock):  # simple authentication of the admin connec
     uid = msg[1]
     pwd = msg[2]
 
-    if (sock.remote_address[0] == "172.0.0.1") or baseConfig.getboolean("Network Configuration", "Allow Remote Administration"):
-        try:
-            pwdExpected = usersDB.get("SysAdmins", uid).encode('utf8')
-        except configparser.NoOptionError:
-            pwdExpected = '0'.encode('utf8')
-        if bcrypt.checkpw(pwd.encode("utf8"), pwdExpected):
-            global sockAdmin; sockAdmin = sock
-            tx = b"202"  # 202 "Request Accepted" indicates successful Auth.
-            return tx
+    if usersDB.has_option("SysAdmins", uid):  # checks if this user is allowed to be a sysadmin.
+        if (sock.remote_address[0] == "172.0.0.1") or baseConfig.getboolean("Network Configuration", "Allow Remote Administration"):
+            try:
+                pwdExpected = usersDB.get("Users", uid).encode('utf8')
+            except configparser.NoOptionError:
+                pwdExpected = '0'.encode('utf8')
+            if bcrypt.checkpw(pwd.encode("utf8"), pwdExpected):
+                global sockAdmin; sockAdmin = sock
+                tx = b"202"  # 202 "Request Accepted" indicates successful Auth.
+                return tx
+            else:
+                tx = "Authentication Error, Please Retry Connection"
+                return tx
         else:
-            tx = "Authentication Error, Please Retry Connection"
+            tx = "Remote administration is not enabled on this server"
             return tx
-    else:
-        tx = "Remote administration is not enabled on this server"
-        return tx
 
 async def taskTx(sock, message):  # a poor implementation of an output coroutine.
     print("Made it to taskTX")
@@ -162,12 +182,12 @@ async def dieGracefully(message):  # This function performs all actions related 
 
     while delay > 0:  # Do the delay routine
         if delay > 30:
-            delay = await delay_by(300)
+            delay = await delay_by(300, delay)
         else:
-            delay = await delay_by(30)
+            delay = await delay_by(30, delay)
     #Graceful Shutdown Starts Here
+    broadcastGlobal(message)
     for player in sessions: # Alert players and then kick them
-        alertShutdown(player, reason)
         sysKick(player, "Server Shutdown", False, 0)
     global running; running = False
     tx = "Shutdown Complete, exiting."
@@ -183,15 +203,44 @@ def startSSL():  # Start SSL Context by fetching some requisite items from the c
         ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
         ctx.load_cert_chain(certfile=fCert, keyfile=fKey)
 
-async def delay_by(seconds):
-    minutes = seconds/60  # Todo pickup from here.
+async def delay_by(seconds, tofinal):
+    if seconds < 60:
+        message = ("[SERVER]A shutdown has been scheduled for %s seconds from now." % seconds)
+    else:
+        minutes = tofinal/60
+        message = ("[SERVER]A shutdown has been scheduled for %s minutes from now." % minutes)
+    broadcastGlobal(message)
+    asyncio.sleep(seconds)
+    newdelay = tofinal - seconds
+    return newdelay
 
-async def alertShutdown(player, message):
-    pass
+async def broadcastGlobal(message):
+    for player in sessions:
+        sock = sessions[player]
+        await sock.send(message)
+
 
 async def sysKick(player, reason, ban, lengthBan):
-    pass
+    try:
+        sock = sessions[player]
+    except KeyError:
+        tx = "Failed to kick player - not logged in."
+        return tx
 
+    if not ban:
+        sock.send("You have been kicked by the system for: %s" % reason)
+    else:
+        sock.send("You have been banned by the system for %s days for: %s" % (lengthBan, reason))
+        now = datetime.datetime.now()
+        future = datetime.timedelta(days=lengthBan)
+        unbanned = now + future
+        usersDB.set("Banned", player, str(unbanned.timestamp()))
+        with open(os.path.join(abspathHome, "Game Data/users.db"), "w") as f:
+            usersDB.write(f)
+    del sessions[player]
+    sock.close()
+    tx = "Success"
+    return tx
 
 # Initialize the Config Parser&Fetch Globals, Build Queues, all that stuff
 abspathHome = os.getcwd()
