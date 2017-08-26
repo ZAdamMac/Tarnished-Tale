@@ -34,6 +34,9 @@ async def categorize(rx, sock):  # TODO testing only, should refactor and tweak 
     if catRX == "system":
         tx = await taskSys(rx, sock)  # refers to an as-yet unimplemented JoinableQueue
         return tx
+    elif catRX == "ATERM_MSG":  # this socket is attempting to authenticate as an admin terminal
+        tx = await taskAdmin(rx, sock)
+        return tx
     elif catRX is not None:
         tx = str("That request belongs to the %s category!" % catRX)
         return tx
@@ -96,15 +99,81 @@ async def taskSys(message, requester):
         tx = b"200"  # 200 closes connection "at client request".
         return tx
 
+async def taskAdmin(message, sock):  # Handles messages from the admin console script
+    bashed = message.lower()
+    msg = bashed.split(" ")
+
+    if sock != sockAdmin:  # Authenticate this connection as the current admin console connection
+        tx = await authAdmin(message, sock)
+        return tx
+    else:
+        if msg[1] == "shutdown":  # Implements graceful shutdown!
+            tx = await dieGracefully(bashed)
+        elif msg[1] == "fetch":
+            pass
+        elif msg[1] == "logging":  # Drop to a logging configuration editor
+            pass
+        elif msg[1] == "kick":  # Kick a player
+            pass
+        elif msg[1] == "chpwd":  # Change a user's password
+            pass
+        else:
+            tx = "Unrecognized Administrative Command"
+
+async def authAdmin(message, sock):  # simple authentication of the admin connection
+    msg = message.split
+    uid = msg[1]
+    pwd = msg[2]
+
+    if (sock.remote_address[0] == "172.0.0.1") or baseConfig.getboolean("Network Configuration", "Allow Remote Administration"):
+        try:
+            pwdExpected = usersDB.get("SysAdmins", uid).encode('utf8')
+        except configparser.NoOptionError:
+            pwdExpected = '0'.encode('utf8')
+        if bcrypt.checkpw(pwd.encode("utf8"), pwdExpected):
+            global sockAdmin; sockAdmin = sock
+            tx = b"202"  # 202 "Request Accepted" indicates successful Auth.
+            return tx
+        else:
+            tx = "Authentication Error, Please Retry Connection"
+            return tx
+    else:
+        tx = "Remote administration is not enabled on this server"
+        return tx
+
 async def taskTx(sock, message):  # a poor implementation of an output coroutine.
     print("Made it to taskTX")
     if message == b"200":
         await sock.send("Goodbye.")
         await sock.close()
         return
+    if message == b"202":
+        await sock.send("Authentication Successful, you are now the admin terminal.")
     else:
         await sock.send(message)
         return
+
+async def dieGracefully(message):  # This function performs all actions related to the graceful shutdown
+    args = message.split("")
+    delay = args[2]
+    if delay == "now":
+        delay = 0
+    reason = args[3]  # TODO need to fix this, it's not right.
+
+    while delay > 0:  # Do the delay routine
+        if delay > 30:
+            delay = await delay_by(300)
+        else:
+            delay = await delay_by(30)
+    #Graceful Shutdown Starts Here
+    for player in sessions: # Alert players and then kick them
+        alertShutdown(player, reason)
+        sysKick(player, "Server Shutdown", False, 0)
+    global running; running = False
+    tx = "Shutdown Complete, exiting."
+    print("Shutdown by admin console, exiting.")
+    serving.stop()
+    return tx
 
 def startSSL():  # Start SSL Context by fetching some requisite items from the config files, if so configured
     if baseConfig.getboolean("Network Configuration", "TLS") is True:
@@ -113,6 +182,15 @@ def startSSL():  # Start SSL Context by fetching some requisite items from the c
         fKey = os.path.join(abspathHome, "Configuration/server.pem")
         ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
         ctx.load_cert_chain(certfile=fCert, keyfile=fKey)
+
+async def delay_by(seconds):
+    minutes = seconds/60  # Todo pickup from here.
+
+async def alertShutdown(player, message):
+    pass
+
+async def sysKick(player, reason, ban, lengthBan):
+    pass
 
 
 # Initialize the Config Parser&Fetch Globals, Build Queues, all that stuff
@@ -130,6 +208,7 @@ moduleConfig = configparser.ConfigParser()
 # This reader will need to iterate over any and all .dat files in the Configuration/Module Files dir and integrate them
 # into one namespace
 sessions = {}
+sockAdmin = None  # Global, gets set to the socket of the current admin console
 
 title = baseConfig.get("Game Information", "Game Name")
 portIn = baseConfig.get("Network Configuration", "Incoming Port")
@@ -147,11 +226,12 @@ for foo, bar, files in os.walk(abspathModDats):  # crawls the module files looki
 
 
 # Runtime Time
-    announce()
-    startSSL()
-    if baseConfig.getboolean("Network Configuration", "TLS") is True:
-        start_server = ws.serve(serveIn, 'localhost', portIn, ssl=ctx)
-    else:
-        start_server = ws.serve(serveIn, 'localhost', portIn)
-    asyncio.get_event_loop().run_until_complete(start_server)
-    asyncio.get_event_loop().run_forever()
+announce()
+startSSL()
+global running; running = True
+if baseConfig.getboolean("Network Configuration", "TLS") is True:
+    start_server = ws.serve(serveIn, 'localhost', portIn, ssl=ctx)
+else:
+    start_server = ws.serve(serveIn, 'localhost', portIn)
+serving = asyncio.get_event_loop().run_until_complete(start_server)
+serving.run_forever()
