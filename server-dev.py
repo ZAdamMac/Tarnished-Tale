@@ -9,6 +9,7 @@ import asyncio
 import bcrypt
 import configparser
 import datetime
+import logging
 import os
 import ssl
 import websockets as ws
@@ -35,7 +36,7 @@ async def categorize(rx, sock):  # TODO testing only, should refactor and tweak 
     if catRX == "system":
         tx = await taskSys(rx, sock)  # refers to an as-yet unimplemented JoinableQueue
         return tx
-    elif catRX == "ATERM_MSG":  # this socket is attempting to authenticate as an admin terminal
+    elif contentsRX[0] == "ATERM_MSG":  # this socket is attempting to authenticate as an admin terminal
         tx = await taskAdmin(rx, sock)
         return tx
     elif catRX is not None:
@@ -114,6 +115,7 @@ async def taskAdmin(message, sock):  # Handles messages from the admin console s
     bashed = message.lower()
     msg = bashed.split(" ")
 
+    global sockAdmin
     if sock != sockAdmin:  # Authenticate this connection as the current admin console connection
         tx = await authAdmin(message, sock)
         return tx
@@ -121,7 +123,7 @@ async def taskAdmin(message, sock):  # Handles messages from the admin console s
         if msg[1] == "shutdown":  # Implements graceful shutdown!
             tx = await dieGracefully(bashed)
             return tx
-        elif msg[1] == "fetch":
+        elif msg[1] == "fetch": # grab msg[2], one of a flavour of logs.
             pass
         elif msg[1] == "logging":  # Drop to a logging configuration editor
             pass
@@ -131,13 +133,16 @@ async def taskAdmin(message, sock):  # Handles messages from the admin console s
         elif msg[1] == "chpwd":  # Change a user's password
             pass
         elif msg[1] == "unban":  # Remove a user ban
-            pass
+            tx = await sysUnban(msg[2])
         elif msg[1] == "quit":  # Disconnects the console and clears the admin socket
             sockAdmin = None
             tx = b"200"
             return tx
         else:
             tx = "Unrecognized Administrative Command"
+            return tx
+        tx = "You reached the fallthrough: this command must not be implemented"
+        return tx
 
 async def authAdmin(message, sock):  # simple authentication of the admin connection
     msg = message.split
@@ -242,6 +247,27 @@ async def sysKick(player, reason, ban, lengthBan):
     tx = "Success"
     return tx
 
+async def sysUnban(player):
+    try:
+        usersDB.remove_option("Banned", player)
+        tx = ("%s has been unbanned" % player)
+        return tx
+    except configparser.NoOptionError:
+        tx = ("%s was not banned!" % player)
+        return tx
+
+def startLogging():  # Initializes the various logging constructs, as globals.
+    global userLogger  # The access record log
+    global systemLogger # Logs access of and actions by the Admin Console
+
+    userLogger = logging.getLogger("[USER]")
+    userLogger.setLevel(logging.INFO)
+    systemLogger = logging.getLogger("[SYSTEM]")
+    if baseConfig.get("Logging Options", "Debugging"):
+        systemLogger.setLevel(logging.DEBUG)
+    else:
+        systemLogger.setLevel(logging.INFO)
+
 # Initialize the Config Parser&Fetch Globals, Build Queues, all that stuff
 abspathHome = os.getcwd()
 abspathBaseConfig = os.path.join(abspathHome, "Configuration/server_config.txt")
@@ -277,6 +303,7 @@ for foo, bar, files in os.walk(abspathModDats):  # crawls the module files looki
 # Runtime Time
 announce()
 startSSL()
+startLogging()
 global running; running = True
 if baseConfig.getboolean("Network Configuration", "TLS") is True:
     start_server = ws.serve(serveIn, 'localhost', portIn, ssl=ctx)
