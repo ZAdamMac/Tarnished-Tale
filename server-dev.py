@@ -268,6 +268,8 @@ def startLogging():  # Initializes the various logging constructs, as globals.
     else:
         systemLogger.setLevel(logging.INFO)
 
+    # TODO Add Handlers to the Correct Log Files
+
 # Initialize the Config Parser&Fetch Globals, Build Queues, all that stuff
 abspathHome = os.getcwd()
 abspathBaseConfig = os.path.join(abspathHome, "Configuration/server_config.txt")
