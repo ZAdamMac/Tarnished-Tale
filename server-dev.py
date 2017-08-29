@@ -10,6 +10,7 @@ import bcrypt
 import configparser
 import datetime
 import logging
+import logging.handlers
 import os
 import ssl
 import websockets as ws
@@ -19,10 +20,11 @@ import websockets as ws
 
 
 # Defining Functions
-async def serveIn(sock, port):  # The basic runtime of the entire server goes into this function.
+async def serveIn(sock):  # The basic runtime of the entire server goes into this function.
     print("New Connection by %s:%s" % (sock.remote_address[0], sock.remote_address[1]))
     await sock.send("Welcome to %s" % title) # TODO Generalize, call from config
-    while True:  # This is stupid, never do this.
+    global running
+    while running:  # This is stupid, never do this.
         msg = await sock.recv()
         response = await categorize(msg, sock)
         await taskTx(sock, response)
@@ -121,19 +123,21 @@ async def taskAdmin(message, sock):  # Handles messages from the admin console s
         return tx
     else:
         if msg[1] == "shutdown":  # Implements graceful shutdown!
+            #Expects some arguments in the order shutdown now/delay reason
             tx = await dieGracefully(bashed)
             return tx
-        elif msg[1] == "fetch": # grab msg[2], one of a flavour of logs.
-            pass
         elif msg[1] == "logging":  # Drop to a logging configuration editor
-            pass
+            tx = await setLoggingLevel(msg[2])
+            return tx
         elif msg[1] == "kick":  # Kick a player
             tx = await sysKick(msg[2], msg[3], msg[4], msg[5])
             return tx
         elif msg[1] == "chpwd":  # Change a user's password
-            pass
+            tx = await adminChpwd(msg[2], message.split()[3])
+            return tx
         elif msg[1] == "unban":  # Remove a user ban
             tx = await sysUnban(msg[2])
+            return tx
         elif msg[1] == "quit":  # Disconnects the console and clears the admin socket
             sockAdmin = None
             tx = b"200"
@@ -141,8 +145,6 @@ async def taskAdmin(message, sock):  # Handles messages from the admin console s
         else:
             tx = "Unrecognized Administrative Command"
             return tx
-        tx = "You reached the fallthrough: this command must not be implemented"
-        return tx
 
 async def authAdmin(message, sock):  # simple authentication of the admin connection
     msg = message.split
@@ -183,7 +185,7 @@ async def dieGracefully(message):  # This function performs all actions related 
     delay = args[2]
     if delay == "now":
         delay = 0
-    reason = args[3]  # TODO need to fix this, it's not right.
+    reason = args[3:]
 
     while delay > 0:  # Do the delay routine
         if delay > 30:
@@ -191,7 +193,7 @@ async def dieGracefully(message):  # This function performs all actions related 
         else:
             delay = await delay_by(30, delay)
     #Graceful Shutdown Starts Here
-    broadcastGlobal(message)
+    broadcastGlobal(reason)
     for player in sessions: # Alert players and then kick them
         sysKick(player, "Server Shutdown", False, 0)
     global running; running = False
@@ -259,6 +261,8 @@ async def sysUnban(player):
 def startLogging():  # Initializes the various logging constructs, as globals.
     global userLogger  # The access record log
     global systemLogger # Logs access of and actions by the Admin Console
+    global abspathDirLogs
+    global baseConfig
 
     userLogger = logging.getLogger("[USER]")
     userLogger.setLevel(logging.INFO)
@@ -268,12 +272,44 @@ def startLogging():  # Initializes the various logging constructs, as globals.
     else:
         systemLogger.setLevel(logging.INFO)
 
-    # TODO Add Handlers to the Correct Log Files
+    userLogger.addHandler(logging.handlers.TimedRotatingFileHandler(os.path.join(abspathDirLogs, "access.log"), when='midnight'))
+    systemLogger.addHandler(logging.handlers.TimedRotatingFileHandler(os.path.join(abspathDirLogs, "system.log"), when='midnight'))
+
+async def adminChpwd(target, newpass):
+    if not usersDB.has_option("Users", target):
+        tx = ("Unable to change password; user %s does not exist." % target)
+        return tx
+    else:
+        salted = bcrypt.hashpw(newpass.encode('utf8'), bcrypt.gensalt())
+        salted = str(salted)  # The next several lines are necessary or the salt/pw store is broken when read from config
+        strip1 = salted.lstrip("b'")
+        strip2 = strip1.rstrip("'")
+        salted = strip2
+        usersDB.set("Users", target,
+                    str(salted))  # Stripping in this way before setting allows the value to be read back normally later
+        with open(os.path.join(abspathHome, "Game Data/users.db"), "w") as db:
+            usersDB.write(db)
+        tx = ("Password reset successful; notify %s their password is reset!" % target)
+        return tx
+
+async def setLoggingLevel(level):
+    if level == "debug":
+        userLogger.setLevel(logging.DEBUG)
+        systemLogger.addHandler(logging.DEBUG)
+    elif level == "info":
+        userLogger.setLevel(logging.INFO)
+        systemLogger.setLevel(logging.INFO)
+    else:
+        tx = "That is not a valid logging level. Supported: info, debug"
+        return tx
+    tx = "Logging level set. This is not permanent - if a permenent change is desired, change the config."
+    return tx
 
 # Initialize the Config Parser&Fetch Globals, Build Queues, all that stuff
 abspathHome = os.getcwd()
 abspathBaseConfig = os.path.join(abspathHome, "Configuration/server_config.txt")
 abspathModDats = os.path.join(abspathHome, "Configuration/Module Files")
+abspathDirLogs = os.path.join(abspathHome, "Logs")
 
 baseConfig = configparser.ConfigParser()   # We need several parsers. This one will handle the basic config file.
 baseConfig.read(abspathBaseConfig)

@@ -13,7 +13,5 @@ TLS: True   # Controls the use of TLS. Deactivate for internal testing only
 #If False, should still be possible to connect via SSH.
 Allow Remote Administration: False
 
-PW Reset Email: zachary.j.adam@gmail.com  # the email to alert if a password reset is requested
-
 [Logging Options]
 Debugging: True
