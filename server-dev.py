@@ -20,7 +20,7 @@ import websockets as ws
 
 
 # Defining Functions
-async def serveIn(sock):  # The basic runtime of the entire server goes into this function.
+async def serveIn(sock, foo):  # The basic runtime of the entire server goes into this function.
     print("New Connection by %s:%s" % (sock.remote_address[0], sock.remote_address[1]))
     await sock.send("Welcome to %s" % title) # TODO Generalize, call from config
     global running
@@ -124,7 +124,7 @@ async def taskAdmin(message, sock):  # Handles messages from the admin console s
     else:
         if msg[1] == "shutdown":  # Implements graceful shutdown!
             #Expects some arguments in the order shutdown now/delay reason
-            tx = await dieGracefully(bashed)
+            tx = await dieGracefully(message)
             return tx
         elif msg[1] == "logging":  # Drop to a logging configuration editor
             tx = await setLoggingLevel(msg[2])
@@ -147,14 +147,14 @@ async def taskAdmin(message, sock):  # Handles messages from the admin console s
             return tx
 
 async def authAdmin(message, sock):  # simple authentication of the admin connection
-    msg = message.split
-    uid = msg[1]
+    msg = message.split()
+    user = msg[1]
     pwd = msg[2]
 
-    if usersDB.has_option("SysAdmins", uid):  # checks if this user is allowed to be a sysadmin.
-        if (sock.remote_address[0] == "172.0.0.1") or baseConfig.getboolean("Network Configuration", "Allow Remote Administration"):
+    if usersDB.has_option("SysAdmins", user):  # checks if this user is allowed to be a sysadmin.
+        if (sock.remote_address[0] == '127.0.0.1') or baseConfig.getboolean("Network Configuration", "Allow Remote Administration"):
             try:
-                pwdExpected = usersDB.get("Users", uid).encode('utf8')
+                pwdExpected = usersDB.get("Users", user).encode('utf8')
             except configparser.NoOptionError:
                 pwdExpected = '0'.encode('utf8')
             if bcrypt.checkpw(pwd.encode("utf8"), pwdExpected):
@@ -181,25 +181,26 @@ async def taskTx(sock, message):  # a poor implementation of an output coroutine
         return
 
 async def dieGracefully(message):  # This function performs all actions related to the graceful shutdown
-    args = message.split("")
+    args = message.split(" ")
     delay = args[2]
-    if delay == "now":
+    if delay.lower == "now":
         delay = 0
-    reason = args[3:]
-
+    reason = " ".join(args[3:])
+    delay = int(delay)
     while delay > 0:  # Do the delay routine
         if delay > 30:
             delay = await delay_by(300, delay)
         else:
-            delay = await delay_by(30, delay)
+            delay = await delay_by(delay, delay)
     #Graceful Shutdown Starts Here
-    broadcastGlobal(reason)
-    for player in sessions: # Alert players and then kick them
-        sysKick(player, "Server Shutdown", False, 0)
+    await broadcastGlobal("[SERVER] This server has been shut down for the following: %s" % reason)
+    thing = sessions.copy()
+    for player in thing:
+        await sysKick(player, "Server Shutdown", False, 0)
     global running; running = False
     tx = "Shutdown Complete, exiting."
     print("Shutdown by admin console, exiting.")
-    serving.stop()
+    asyncio.get_event_loop().stop()
     return tx
 
 def startSSL():  # Start SSL Context by fetching some requisite items from the config files, if so configured
@@ -216,8 +217,8 @@ async def delay_by(seconds, tofinal):
     else:
         minutes = tofinal/60
         message = ("[SERVER]A shutdown has been scheduled for %s minutes from now." % minutes)
-    broadcastGlobal(message)
-    asyncio.sleep(seconds)
+    await broadcastGlobal(message)
+    await asyncio.sleep(seconds)
     newdelay = tofinal - seconds
     return newdelay
 
@@ -347,5 +348,5 @@ if baseConfig.getboolean("Network Configuration", "TLS") is True:
     start_server = ws.serve(serveIn, 'localhost', portIn, ssl=ctx)
 else:
     start_server = ws.serve(serveIn, 'localhost', portIn)
-serving = asyncio.get_event_loop().run_until_complete(start_server)
-serving.run_forever()
+asyncio.get_event_loop().run_until_complete(start_server)
+asyncio.get_event_loop().run_forever()

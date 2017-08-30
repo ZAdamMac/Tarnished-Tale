@@ -4,7 +4,7 @@ tim = $2b$12$oy5gZOQjkSDwPsyLJr1mbOWS6qExwqnSPhKLkCqoIeRvGXWlr5pwW
 joe = $2b$12$4XGKSB82cAX4oykSiXVzYOdusavL1JUPTIXBGOMle9zX3UoruJiLG
 
 [SysAdmins]
-testops
+testops = True
 
 [Banned]
 #Entries follow the syntax "Username = Until"

@@ -5,9 +5,11 @@ Game Name: Tarnished Tale POC
 
 [Network Configuration]
 Incoming Port: 5050
-TLS: True   # Controls the use of TLS. Deactivate for internal testing only
-            # as TLS provides the only security to the communications between
-            # client and server, including for passwords.
+
+# Controls the use of TLS. Deactivate for internal testing only
+# as TLS provides the only security to the communications between
+# client and server, including for passwords.
+TLS: True
 
 #Controls whether the console can be launched remotely.
 #If False, should still be possible to connect via SSH.
