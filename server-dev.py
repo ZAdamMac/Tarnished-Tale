@@ -183,12 +183,12 @@ async def taskTx(sock, message):  # a poor implementation of an output coroutine
 async def dieGracefully(message):  # This function performs all actions related to the graceful shutdown
     args = message.split(" ")
     delay = args[2]
-    if delay.lower == "now":
+    if delay.lower() == "now":
         delay = 0
     reason = " ".join(args[3:])
     delay = int(delay)
     while delay > 0:  # Do the delay routine
-        if delay > 30:
+        if delay > 300:
             delay = await delay_by(300, delay)
         else:
             delay = await delay_by(delay, delay)
