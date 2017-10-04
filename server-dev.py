@@ -76,6 +76,7 @@ async def taskSys(message, requester):
             salted = strip2
             addargs = ([ contents[1], salted, False, False, False, False, False ])
             conUsers.execute('INSERT INTO users VALUES (?,?,?,?,?,?,?)', addargs)
+            conUsers.commit()
             tx = "Your registration was successful. Please record your password for future reference."
             return tx
     elif operation == "login":  # expects "login user pass"
@@ -87,6 +88,7 @@ async def taskSys(message, requester):
             tx = "Login Failed"
             return tx
         uid, hash, admin, banned, expyBan, MFA, tokenMFA = record[0]
+
         authed = False # You must always start with the decision that Alice is actually Mallory
         authed = bcrypt.checkpw(contents[2], hash.encode('utf8'))
         if authed:
@@ -243,6 +245,7 @@ async def sysKick(player, reason, ban, lengthBan):
         unbanned = now + future
         args = [unbanned, player]
         conUsers.execute('UPDATE FROM users SET isBanned=True, banexpy =? WHERE userID=?', args)
+        conUsers.commit()
     del sessions[player]
     sock.close()
     tx = "Success"
@@ -250,6 +253,7 @@ async def sysKick(player, reason, ban, lengthBan):
 
 async def sysUnban(player):
     conUsers.execute('UPDATE FROM users SET isBanned=False, banExpy=False WHERE userID=?', player)
+    conUsers.commit()
     tx = ("%s has been unbanned" % player)
     return tx
 
@@ -278,6 +282,7 @@ async def adminChpwd(target, newpass):
     salted = strip2
     directions = salted, target
     conUsers.execute('UPDATE FROM users SET hash=? WHERE userID=?', directions)
+    conUsers.commit()
     tx = ("Password reset successful; notify %s their password is reset!" % target)
     return tx
 

@@ -44,7 +44,16 @@ A directory in which future expansion modules are placed to install their functi
 A directory in which the various data for making up the game world and playerbase will live.
 
 #### users.db
-`users.db` is a configparser file used as a database which contains various user information, as described below.
+`users.db` is an SQL-database file containing a table of all users and related data, such as banned state, expiry date, admin level, and so on. The current database also contains 2FA fields, unused.
+
+The columns of the table `users` are:
+- `userID`, in smashed case. Casing for display purposes comes from the login request anyway.
+- `passHash`, a UTF-8-encoded string, the salted hash of the corresponding password. Via bcrypt each password is individually salted for security.
+- `isAdmin`, boolean value denoting admin permissions for this account.
+- `isBanned`, boolean value denoting the ban-state of the system.
+- `banexpy`, a string denoting the date on which the corresponding ban expires.
+- `2FAEnabled`, unimplemented.
+- `token`, the public token identifying the 2FA device to use
 
 ##### Users
 A general category that contains all users, player or otherwise, listed by their name, with their value set to an encoded string which describes their relationship with their password's salted hash and salt. Passwords are stored as salted hashes using bcrypt.
