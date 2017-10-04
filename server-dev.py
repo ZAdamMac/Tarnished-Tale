@@ -13,6 +13,7 @@ import logging
 import logging.handlers
 import os
 import ssl
+import sqlite3
 import websockets as ws
 
 
@@ -63,7 +64,7 @@ async def taskSys(message, requester):
 
     if operation == "register":  # expects "register user pass"
         print("%s is requesting to add user %s to the game." % (session.remote_address[0], contents[1]))
-        if usersDB.has_option("Users", contents[1]):  #  Prevent overwrite of existing user entries
+        if not extantUser(contents[1]):  #  Prevent overwrite of existing user entries
             print("Request cannot be completed - existing user.")
             tx = "This user already exists. Please change usernames and try again."
             return tx
@@ -73,34 +74,24 @@ async def taskSys(message, requester):
             strip1 = salted.lstrip("b'")
             strip2 = strip1.rstrip("'")
             salted = strip2
-            usersDB.set("Users", contents[1], str(salted)) #Stripping in this way before setting allows the value to be read back normally later
-            with open(os.path.join(abspathHome, "Game Data/users.db"), "w") as db:
-                usersDB.write(db)
+            addargs = ([ contents[1], salted, False, False, False, False, False ])
+            conUsers.execute('INSERT INTO users VALUES (?,?,?,?,?,?,?)', addargs)
             tx = "Your registration was successful. Please record your password for future reference."
             return tx
     elif operation == "login":  # expects "login user pass"
-        print("%s is attempting to log in as %s" % (session.remote_address[0], contents[1]))
-        try:
-            pwdExpected = usersDB.get("Users", contents[1]).encode("utf8")
-        except configparser.NoOptionError:
-            pwdExpected = 0
-        if bcrypt.checkpw(contents[2].encode('utf8'), pwdExpected):
-            for user in sessions:  # Checks for an existing session logged in under that name
-                if user == contents[1]:
-                    tx = "Login failed"
-                    return tx
-            if usersDB.has_option("Banned", contents[1]):
-                lifted = usersDB.getfloat("Banned", contents[1])
-                now = datetime.datetime.now().timestamp()
-                if lifted >= now:
-                    usersDB.remove_option("Banned", contents[1])
-                    with open(os.path.join(abspathHome, "Game Data/users.db"), "w") as f:
-                        usersDB.write(f)
-                else:
-                    tx = "Login Failed"
-                    return tx
+        print("%s is attempting to log in as %s" % (session.remote_address[0], contents[1])) # TODO change to log entry
+        fooargs = (contents[1].lower())
+        conUsers.execute('SELECT FROM users WHERE userID=?', fooargs)
+        record = conUsers.cursor().fetchall()
+        if len(record) == 0:
+            tx = "Login Failed"
+            return tx
+        uid, hash, admin, banned, expyBan, MFA, tokenMFA = record[0]
+        authed = False # You must always start with the decision that Alice is actually Mallory
+        authed = bcrypt.checkpw(contents[2], hash.encode('utf8'))
+        if authed:
             sessions.update(dict({contents[1]:session}))
-            welcome = str("You are now %s" % contents[1])
+            welcome = str("You are now known as %s." % contents[1])
             tx = welcome
             return tx
         else:
@@ -112,6 +103,14 @@ async def taskSys(message, requester):
         print("%s has quit" % tgt)
         tx = b"200"  # 200 closes connection "at client request".
         return tx
+
+def extantUser(uname):
+    conUsers.execute('SELECT FROM users WHERE userID = ?', uname)
+    ret = conUsers.cursor().fetchall()
+    if len(ret) == 0:
+        return False
+    else:
+        return True
 
 async def taskAdmin(message, sock):  # Handles messages from the admin console script
     bashed = message.lower()
@@ -151,13 +150,13 @@ async def authAdmin(message, sock):  # simple authentication of the admin connec
     user = msg[1]
     pwd = msg[2]
 
-    if usersDB.has_option("SysAdmins", user):  # checks if this user is allowed to be a sysadmin.
+    conUsers.execute("SELECT FROM users WHERE userID=?", user)
+    result = conUsers.cursor().fetchone()
+    uid, hash, isAdmin, isBanned, MFA, tokenMFA = result
+
+    if isAdmin:  # checks if this user is allowed to be a sysadmin.
         if (sock.remote_address[0] == '127.0.0.1') or baseConfig.getboolean("Network Configuration", "Allow Remote Administration"):
-            try:
-                pwdExpected = usersDB.get("Users", user).encode('utf8')
-            except configparser.NoOptionError:
-                pwdExpected = '0'.encode('utf8')
-            if bcrypt.checkpw(pwd.encode("utf8"), pwdExpected):
+            if bcrypt.checkpw(pwd.encode("utf8"), hash):
                 global sockAdmin; sockAdmin = sock
                 tx = b"202"  # 202 "Request Accepted" indicates successful Auth.
                 return tx
@@ -242,22 +241,17 @@ async def sysKick(player, reason, ban, lengthBan):
         now = datetime.datetime.now()
         future = datetime.timedelta(days=lengthBan)
         unbanned = now + future
-        usersDB.set("Banned", player, str(unbanned.timestamp()))
-        with open(os.path.join(abspathHome, "Game Data/users.db"), "w") as f:
-            usersDB.write(f)
+        args = [unbanned, player]
+        conUsers.execute('UPDATE FROM users SET isBanned=True, banexpy =? WHERE userID=?', args)
     del sessions[player]
     sock.close()
     tx = "Success"
     return tx
 
 async def sysUnban(player):
-    try:
-        usersDB.remove_option("Banned", player)
-        tx = ("%s has been unbanned" % player)
-        return tx
-    except configparser.NoOptionError:
-        tx = ("%s was not banned!" % player)
-        return tx
+    conUsers.execute('UPDATE FROM users SET isBanned=False, banExpy=False WHERE userID=?', player)
+    tx = ("%s has been unbanned" % player)
+    return tx
 
 def startLogging():  # Initializes the various logging constructs, as globals.
     global userLogger  # The access record log
@@ -277,21 +271,15 @@ def startLogging():  # Initializes the various logging constructs, as globals.
     systemLogger.addHandler(logging.handlers.TimedRotatingFileHandler(os.path.join(abspathDirLogs, "system.log"), when='midnight'))
 
 async def adminChpwd(target, newpass):
-    if not usersDB.has_option("Users", target):
-        tx = ("Unable to change password; user %s does not exist." % target)
-        return tx
-    else:
-        salted = bcrypt.hashpw(newpass.encode('utf8'), bcrypt.gensalt())
-        salted = str(salted)  # The next several lines are necessary or the salt/pw store is broken when read from config
-        strip1 = salted.lstrip("b'")
-        strip2 = strip1.rstrip("'")
-        salted = strip2
-        usersDB.set("Users", target,
-                    str(salted))  # Stripping in this way before setting allows the value to be read back normally later
-        with open(os.path.join(abspathHome, "Game Data/users.db"), "w") as db:
-            usersDB.write(db)
-        tx = ("Password reset successful; notify %s their password is reset!" % target)
-        return tx
+    salted = bcrypt.hashpw(newpass.encode('utf8'), bcrypt.gensalt())
+    salted = str(salted)  # The next several lines are necessary or the salt/pw store is broken when read from config
+    strip1 = salted.lstrip("b'")
+    strip2 = strip1.rstrip("'")
+    salted = strip2
+    directions = salted, target
+    conUsers.execute('UPDATE FROM users SET hash=? WHERE userID=?', directions)
+    tx = ("Password reset successful; notify %s their password is reset!" % target)
+    return tx
 
 async def setLoggingLevel(level):
     if level == "debug":
@@ -306,6 +294,15 @@ async def setLoggingLevel(level):
     tx = "Logging level set. This is not permanent - if a permenent change is desired, change the config."
     return tx
 
+def startDB():  # We need to initialize a few databases using sqlite3
+    isDB = os.path.isfile('Game Data/users.db')
+    global conUsers
+    conUsers = sqlite3.connect('Game Data/users.db')
+
+    if not isDB:
+        conUsers.execute('''CREATE TABLE users
+                            (userID, passHash, isAdmin, isBanned, banexpy, 2FAEnabled, token)''')
+
 # Initialize the Config Parser&Fetch Globals, Build Queues, all that stuff
 abspathHome = os.getcwd()
 abspathBaseConfig = os.path.join(abspathHome, "Configuration/server_config.txt")
@@ -314,9 +311,6 @@ abspathDirLogs = os.path.join(abspathHome, "Logs")
 
 baseConfig = configparser.ConfigParser()   # We need several parsers. This one will handle the basic config file.
 baseConfig.read(abspathBaseConfig)
-
-usersDB = configparser.ConfigParser()
-usersDB.read(os.path.join(abspathHome, "Game Data/users.db"), encoding="utf8")
 
 moduleConfig = configparser.ConfigParser()
 # This reader will need to iterate over any and all .dat files in the Configuration/Module Files dir and integrate them
@@ -343,6 +337,7 @@ for foo, bar, files in os.walk(abspathModDats):  # crawls the module files looki
 announce()
 startSSL()
 startLogging()
+startDB()
 global running; running = True
 if baseConfig.getboolean("Network Configuration", "TLS") is True:
     start_server = ws.serve(serveIn, 'localhost', portIn, ssl=ctx)
