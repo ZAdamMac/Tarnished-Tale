@@ -89,6 +89,14 @@ async def taskSys(message, requester):
             return tx
         uid, hash, admin, banned, expyBan, MFA, tokenMFA = record[0]
 
+        if banned:
+            now = datetime.datetime.now().timestamp()
+            if expyBan >= now:
+                conUsers.execute('UPDATE FROM users SET banned=False WHERE userid=?', uid)
+            else:
+                tx = "Login Failed"
+                return tx
+
         authed = False # You must always start with the decision that Alice is actually Mallory
         authed = bcrypt.checkpw(contents[2], hash.encode('utf8'))
         if authed:
