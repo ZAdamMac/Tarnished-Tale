@@ -163,6 +163,9 @@ async def authAdmin(message, sock):  # simple authentication of the admin connec
     conUsers.execute("SELECT FROM users WHERE userID=?", user)
     result = conUsers.cursor().fetchone()
     uid, hash, isAdmin, isBanned, MFA, tokenMFA = result
+    if len(result) == 0:
+        tx = "Authentication Error, Please Retry Connection"
+        return tx
 
     if isAdmin:  # checks if this user is allowed to be a sysadmin.
         if (sock.remote_address[0] == '127.0.0.1') or baseConfig.getboolean("Network Configuration", "Allow Remote Administration"):
