@@ -64,7 +64,7 @@ async def taskSys(message, requester):
 
     if operation == "register":  # expects "register user pass"
         print("%s is requesting to add user %s to the game." % (session.remote_address[0], contents[1]))
-        if not extantUser(contents[1]):  #  Prevent overwrite of existing user entries
+        if extantUser(contents[1]):  #  Prevent overwrite of existing user entries
             print("Request cannot be completed - existing user.")
             tx = "This user already exists. Please change usernames and try again."
             return tx
@@ -82,8 +82,9 @@ async def taskSys(message, requester):
     elif operation == "login":  # expects "login user pass"
         print("%s is attempting to log in as %s" % (session.remote_address[0], contents[1])) # TODO change to log entry
         fooargs = (contents[1].lower())
-        conUsers.execute('SELECT FROM users WHERE userID=?', fooargs)
-        record = conUsers.cursor().fetchall()
+        curse = conUsers.cursor()
+        curse.execute('SELECT userID, passHash, isAdmin, isBanned, banExpy, MFAEnabled, token FROM users WHERE userID=?', (fooargs,))
+        record = curse.fetchall()
         if len(record) == 0:
             tx = "Login Failed"
             return tx
@@ -92,13 +93,13 @@ async def taskSys(message, requester):
         if banned:
             now = datetime.datetime.now().timestamp()
             if expyBan >= now:
-                conUsers.execute('UPDATE FROM users SET banned=False WHERE userid=?', uid)
+                conUsers.execute('UPDATE users SET banned=False WHERE userid=?', uid)
             else:
                 tx = "Login Failed"
                 return tx
 
         authed = False # You must always start with the decision that Alice is actually Mallory
-        authed = bcrypt.checkpw(contents[2], hash.encode('utf8'))
+        authed = bcrypt.checkpw(contents[2].encode('utf8'), hash)
         if authed:
             sessions.update(dict({contents[1]:session}))
             welcome = str("You are now known as %s." % contents[1])
@@ -115,7 +116,7 @@ async def taskSys(message, requester):
         return tx
 
 def extantUser(uname):
-    conUsers.execute('SELECT FROM users WHERE userID = ?', uname)
+    conUsers.execute('SELECT userID FROM users WHERE userID = ?', (uname,))
     ret = conUsers.cursor().fetchall()
     if len(ret) == 0:
         return False
@@ -160,7 +161,7 @@ async def authAdmin(message, sock):  # simple authentication of the admin connec
     user = msg[1]
     pwd = msg[2]
 
-    conUsers.execute("SELECT FROM users WHERE userID=?", user)
+    conUsers.execute("SELECT userID, passHash, isAdmin, isBanned, MFAEnabled, token FROM users WHERE userID=?", user)
     result = conUsers.cursor().fetchone()
     uid, hash, isAdmin, isBanned, MFA, tokenMFA = result
     if len(result) == 0:
@@ -255,7 +256,7 @@ async def sysKick(player, reason, ban, lengthBan):
         future = datetime.timedelta(days=lengthBan)
         unbanned = now + future
         args = [unbanned, player]
-        conUsers.execute('UPDATE FROM users SET isBanned=True, banexpy =? WHERE userID=?', args)
+        conUsers.execute('UPDATE users SET isBanned=True, banexpy =? WHERE userID=?', args)
         conUsers.commit()
     del sessions[player]
     sock.close()
@@ -263,7 +264,7 @@ async def sysKick(player, reason, ban, lengthBan):
     return tx
 
 async def sysUnban(player):
-    conUsers.execute('UPDATE FROM users SET isBanned=False, banExpy=False WHERE userID=?', player)
+    conUsers.execute('UPDATE users SET isBanned=False, banExpy=False WHERE userID=?', player)
     conUsers.commit()
     tx = ("%s has been unbanned" % player)
     return tx
@@ -292,7 +293,7 @@ async def adminChpwd(target, newpass):
     strip2 = strip1.rstrip("'")
     salted = strip2
     directions = salted, target
-    conUsers.execute('UPDATE FROM users SET hash=? WHERE userID=?', directions)
+    conUsers.execute('UPDATE users SET passHash=? WHERE userID=?', directions)
     conUsers.commit()
     tx = ("Password reset successful; notify %s their password is reset!" % target)
     return tx
@@ -316,8 +317,22 @@ def startDB():  # We need to initialize a few databases using sqlite3
     conUsers = sqlite3.connect('Game Data/users.db')
 
     if not isDB:
+        print("Couldn't find existing users.db, generating new.")
         conUsers.execute('''CREATE TABLE users
-                            (userID, passHash, isAdmin, isBanned, banexpy, 2FAEnabled, token)''')
+                            (userID, passHash, isAdmin, isBanned, banExpy, MFAEnabled, token)''')
+        print("Naturally you will need an admin account.")
+        uid = input("Username:")
+        match = False
+        while not match:
+            pass1 = input("Password:")
+            pass2 = input("Repeat Password:")
+            if pass1 != pass2:
+                print("Password's don't match!")
+            else:
+                match = True
+        fooargs = [uid, bcrypt.hashpw(pass1.encode('utf8'), bcrypt.gensalt()), True, False, 0, False, 0]
+        conUsers.execute('INSERT INTO users (userID, passHash, isAdmin, isBanned, banExpy, MFAEnabled, token) VALUES (?,?,?,?,?,?,?)', fooargs)
+        conUsers.commit()
 
 # Initialize the Config Parser&Fetch Globals, Build Queues, all that stuff
 abspathHome = os.getcwd()
