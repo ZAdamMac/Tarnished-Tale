@@ -161,8 +161,9 @@ async def authAdmin(message, sock):  # simple authentication of the admin connec
     user = msg[1]
     pwd = msg[2]
 
-    conUsers.execute("SELECT userID, passHash, isAdmin, isBanned, MFAEnabled, token FROM users WHERE userID=?", user)
-    result = conUsers.cursor().fetchone()
+    c = conUsers.cursor()
+    c.execute("SELECT userID, passHash, isAdmin, isBanned, MFAEnabled, token FROM users WHERE userID=?", (user,))
+    result = c.fetchone()
     uid, hash, isAdmin, isBanned, MFA, tokenMFA = result
     if len(result) == 0:
         tx = "Authentication Error, Please Retry Connection"
