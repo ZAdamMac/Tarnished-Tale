@@ -1,0 +1,13 @@
+[Description]
+#  One of the nine development world rooms intended, this one meant to be a splash room.
+Name: Development Center
+Description: You are trapped in an empty white room, with boring white walls, a boring white ceiling
+    and boring white floors. \n Enjoy your boredom.
+
+[Exits]
+# This entry describes a simple door aimed at the room in "DevWorld/2" which is closed, locked,
+# and has a difficulty factor of 1.
+north: a boring white door.§DevWorld/2§True§True§1
+
+[Callable]
+

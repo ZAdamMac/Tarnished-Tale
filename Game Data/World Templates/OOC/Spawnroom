@@ -1,0 +1,12 @@
+[Description]
+#  A simple example of a room, meant to represent an idea of what a "login"
+#  room could look like. This room will evolve as the character management
+#  evolves around it.
+Name: Character Select Screen
+Description: Welcome. Now that you are logged in as an authenticated user, you
+    can BIRTH a new character from scratch or WAKE an existing character.
+
+[Exits]
+
+[Callable]
+

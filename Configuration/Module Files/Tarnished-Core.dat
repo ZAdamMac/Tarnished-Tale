@@ -15,3 +15,5 @@ warp : movement
 login : system
 quit : system
 register : system
+birth : character
+wake : character

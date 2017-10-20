@@ -18,9 +18,90 @@ import websockets as ws
 
 
 # Defining Principal Classes
+class worldLoader(object): #A handler class for worlds used in first-time spin up and world generation
+    def __init__(self, name): # On init, we need to determine some internal variables using configparser
+        self.name = name
 
+        tempParser = configparser.ConfigParser()
+        tempParser.read(os.path.join(abspathHome,"Game Data/World Templates/%s/worldconfig" % self.name))
+
+        #  The initial properties of the worldobject are the contents of worldconfig
+        self.scry = tempParser.get("Map Controls", "Scry Hint")
+        self.roguelike = tempParser.getboolean("Map Controls", "Roguelike")
+        self.Dynamic = tempParser.getboolean("Map Controls", "Dynamic")
+        self.rateRefresh = tempParser.getint("Map Controls", "Dynamic Rate")
+
+    def rebuild(self):
+        systemLogger.info("Now Loading World: %s", self.name)
+        if not extantWorld(self.name):
+            conWorld.execute("CREATE TABLE ? (room#, name, descr, listContents, listStaticNPCs, listExits, listScripts)", (self.name,))
+        rooms = []
+        roomNums = []
+        for root, null, roomfiles in os.walk(os.path.join(abspathWorlds, self.name)):
+            for room in roomfiles:
+                if room == "worldconfig":
+                    pass
+                else:
+                    roomNums.append(room)  # Also adds the roomnumber to an index to be used in a later step.
+        curWorld.execute("SELECT room# FROM ?", self.name)
+        extantRooms = curWorld.fetchall()
+        newRooms = diff(roomNums, extantRooms)
+        if self.Dynamic:
+            work = roomNums
+            systemLogger.info("% is Dynamic, updating all rooms.", self.name)
+        else:
+            work = newRooms
+            systemLogger.info("% is Static, updating only newly-added rooms", self.name)
+        for r in work:
+            rooms.append(roomLoader(r, self.name))
+        counter = 0
+        for r in rooms:
+            counter =+ 1
+            r.insert() # calls the room object's magic parsing function
+        systemLogger.info("World complete with %s changes", counter)
+
+class roomLoader(object):
+
+    def __init__(self, fname, parent):
+        self.fname = fname
+        self.world = parent
+
+    def insert(self):
+        #  TODO DEFINE
+        systemLogger.debug("Starting to parse %s in %s", self.name, self.world)
+
+        tempParser = configparser.ConfigParser()
+        tempParser.read(os.path.join(abspathWorlds, os.path.join(self.parent, self.fname)))
+        id = self.fname
+        roomName = tempParser.get("Description", "Name")
+        descr = tempParser.get("Description", "Description")
+        listContents = None #  TODO implement in the items update
+        npcs = None #  TODO implement when NPCs are.
+        exits = getListExits(tempParser)
+        scripts = None  # TODO implement in the arbirary scripting update
+        update = None
+        confuser = curWorld.execute("SELECT room# FROM ? WHERE room#=?", (self.world, self.fname))
+        if len(confuser) == 0:
+            systemLogger.debug("This is a new world, inserting.")
+
+            # TODO Insert
+        else:
+            systemLogger.debug("This room already exists, updating.")
+            # TODO Update
+        tempParser = None
 
 # Defining Functions
+def getListExits(parser):  # A function that parses the exit syntax to build the right list.
+    #TODO implement Properly
+    # Get exits in section exits!
+    # for exit in exits, get exit string!
+    # cat together all the strings into one string, seperated with ‽
+    return None
+
+def diff(first, second):  # simple function for diffing two lists.
+    second = set(second)
+    return [item for item in first if item not in second]
+
 async def serveIn(sock, foo):  # The basic runtime of the entire server goes into this function.
     print("New Connection by %s:%s" % (sock.remote_address[0], sock.remote_address[1]))
     await sock.send("Welcome to %s" % title) # TODO Generalize, call from config
@@ -30,7 +111,7 @@ async def serveIn(sock, foo):  # The basic runtime of the entire server goes int
         response = await categorize(msg, sock)
         await taskTx(sock, response)
 
-async def categorize(rx, sock):  # TODO testing only, should refactor and tweak in next build
+async def categorize(rx, sock):
     contentsRX = rx.split(" ")
     try:
         catRX = knownCommands[contentsRX[0]]
@@ -41,6 +122,9 @@ async def categorize(rx, sock):  # TODO testing only, should refactor and tweak 
         return tx
     elif contentsRX[0] == "ATERM_MSG":  # this socket is attempting to authenticate as an admin terminal
         tx = await taskAdmin(rx, sock)
+        return tx
+    elif catRX == "movement":
+        tx = await taskMovement(rx, sock)
         return tx
     elif catRX is not None:
         tx = str("That request belongs to the %s category!" % catRX)
@@ -54,6 +138,9 @@ def announce():
     print("Welcome to Tarnished Tale Server %s" % version)
     print("Currently hosting %s" % title)
     print("Expecting connections on port %s" % portIn)
+
+async def taskMovement(message, requester):  # TODO implement
+    pass
 
 async def taskSys(message, requester):
     print("Made it to TaskSys")
@@ -101,7 +188,8 @@ async def taskSys(message, requester):
         authed = False # You must always start with the decision that Alice is actually Mallory
         authed = bcrypt.checkpw(contents[2].encode('utf8'), hash)
         if authed:
-            sessions.update(dict({contents[1]:session}))
+            sessions.update(dict({session:contents[1]})) # TODO find a method by which dictionaries can be searched for key that match some value "foo"
+            positions.update(dict({session:logroom}))
             welcome = str("You are now known as %s." % contents[1])
             tx = welcome
             return tx
@@ -119,6 +207,14 @@ def extantUser(uname):
     conUsers.execute('SELECT userID FROM users WHERE userID = ?', (uname,))
     ret = conUsers.cursor().fetchall()
     if len(ret) == 0:
+        return False
+    else:
+        return True
+
+def extantWorld(wname):
+    curWorld.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (wname,))
+    extant = curWorld.fetchall()
+    if len(extant) == 0:
         return False
     else:
         return True
@@ -212,12 +308,15 @@ async def dieGracefully(message):  # This function performs all actions related 
     for player in thing:
         await sysKick(player, "Server Shutdown", False, 0)
     global running; running = False
+    conUsers.commit()
+    conWorld.commit()
     tx = "Shutdown Complete, exiting."
     print("Shutdown by admin console, exiting.")
     asyncio.get_event_loop().stop()
     return tx
 
 def startSSL():  # Start SSL Context by fetching some requisite items from the config files, if so configured
+    print("Configuring base SSL Context. You will be asked for the key for your certificate.")
     if baseConfig.getboolean("Network Configuration", "TLS") is True:
         global ctx
         fCert = os.path.join(abspathHome, "Configuration/server.pem")
@@ -271,6 +370,7 @@ async def sysUnban(player):
     return tx
 
 def startLogging():  # Initializes the various logging constructs, as globals.
+    print("Starting the loggers. Logs are stored at %s" % abspathDirLogs)
     global userLogger  # The access record log
     global systemLogger # Logs access of and actions by the Admin Console
     global abspathDirLogs
@@ -309,13 +409,16 @@ async def setLoggingLevel(level):
     else:
         tx = "That is not a valid logging level. Supported: info, debug"
         return tx
-    tx = "Logging level set. This is not permanent - if a permenent change is desired, change the config."
+    tx = "Logging level set. This is not permanent - if a permanent change is desired, change the config."
     return tx
 
 def startDB():  # We need to initialize a few databases using sqlite3
+    print("Fetching the Databases")
     isDB = os.path.isfile('Game Data/users.db')
     global conUsers
+    global curUsers
     conUsers = sqlite3.connect('Game Data/users.db')
+    curUsers = conUsers.cursor()
 
     if not isDB:
         print("Couldn't find existing users.db, generating new.")
@@ -334,12 +437,38 @@ def startDB():  # We need to initialize a few databases using sqlite3
         fooargs = [uid, bcrypt.hashpw(pass1.encode('utf8'), bcrypt.gensalt()), True, False, 0, False, 0]
         conUsers.execute('INSERT INTO users (userID, passHash, isAdmin, isBanned, banExpy, MFAEnabled, token) VALUES (?,?,?,?,?,?,?)', fooargs)
         conUsers.commit()
+    print("Users Database Loaded")
+
+    isDB = os.path.isfile('Game Data/rooms.db')
+    global conWorld
+    global curWorld
+    conUsers = sqlite3.connect('Game Data/rooms.db')
+    curWorld = conUsers.cursor()
+    if not isDB:
+        print("Warning: The rooms.db world database was not found.")
+        print("Beggining first-pass world gen. This could take some time.")
+    bootRenew()
+    print("World Database Loaded.")
+
+def bootRenew():  # Special world-renew called only on server launch.
+    worlds = []
+    for currentDir, subdirs, files in os.walk("Game Data/World Templates"):
+        if currentDir.endswith("Game Data/WorldTemplates"):
+            pass
+        else:
+            thisWorld = worldLoader(os.path.basename(currentDir))
+            worlds.append(thisWorld)
+    for w in worlds:
+        w.rebuild()
+    conWorld.commit()
+
 
 # Initialize the Config Parser&Fetch Globals, Build Queues, all that stuff
 abspathHome = os.getcwd()
 abspathBaseConfig = os.path.join(abspathHome, "Configuration/server_config.txt")
 abspathModDats = os.path.join(abspathHome, "Configuration/Module Files")
 abspathDirLogs = os.path.join(abspathHome, "Logs")
+abspathWorlds = os.path.join(abspathHome, "Game Data/World Templates")
 
 baseConfig = configparser.ConfigParser()   # We need several parsers. This one will handle the basic config file.
 baseConfig.read(abspathBaseConfig)
@@ -348,10 +477,12 @@ moduleConfig = configparser.ConfigParser()
 # This reader will need to iterate over any and all .dat files in the Configuration/Module Files dir and integrate them
 # into one namespace
 sessions = {}
+positions = {}
 sockAdmin = None  # Global, gets set to the socket of the current admin console
 
 title = baseConfig.get("Game Information", "Game Name")
 portIn = baseConfig.get("Network Configuration", "Incoming Port")
+templateLogroom = baseConfig.get("World Controls", "CHAR Room")
 
 knownCommands = {}
 for foo, bar, files in os.walk(abspathModDats):  # crawls the module files looking for their command info.
@@ -370,6 +501,7 @@ announce()
 startSSL()
 startLogging()
 startDB()
+print("Great, starting service.")
 global running; running = True
 if baseConfig.getboolean("Network Configuration", "TLS") is True:
     start_server = ws.serve(serveIn, 'localhost', portIn, ssl=ctx)

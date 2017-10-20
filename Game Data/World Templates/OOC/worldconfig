@@ -1,0 +1,7 @@
+[Map Controls]
+Scry Hint: "%s far outside the universe."
+Roguelike: False
+Dynamic: True
+Dynamic Rate: 0
+#Dynamic maps are reloaded when the server is restarted or the designated time has elapsed.
+#Dynamic Rate is a value in minutes. When 0, the map does not reload on global refresh.

@@ -48,7 +48,7 @@ A directory in which the various data for making up the game world and playerbas
 
 The columns of the table `users` are:
 - `userID`, in smashed case. Casing for display purposes comes from the login request anyway.
-- `passHash`, a UTF-8-encoded string, the salted hash of the corresponding password. Via bcrypt each password is individually salted for security.
+- `passHash`, in bytes, the salted hash of the corresponding password. Via bcrypt each password is individually salted for security.
 - `isAdmin`, boolean value denoting admin permissions for this account.
 - `isBanned`, boolean value denoting the ban-state of the system.
 - `banexpy`, a string denoting the date on which the corresponding ban expires.
@@ -72,7 +72,7 @@ Logs are stored in the log directory. They are rotating binary files.
 At present all userspace-accessable functions are hidden in the KnownCommands list. Only the system commands are enumerated at present.
  - `login user pwd` will authenticate a user to the system. If an unregistered user or wrong password is given, or the user is banned, the login attempt will fail. If successful, the user and their socket are registered as active. Failure messages are purposefully non-specific.
  - `register user pwd` will register a new user with the specified password, provided that user does not already exist. Registrations are currently stupid - that is, no confirmation of the password is made and no provision for lost password recovery is made. At present, a user who loses their password must have that password reset by admin. This is a focus of further development.
- - `quit` deregisters the current connection and has the socket closed from the server side.
+ - `quit` deauthenticates the current connection and has the socket closed from the server side.
 
 Other functions for userspace are enumerated in knownCommands but are not yet defined and possess no utility.
 
