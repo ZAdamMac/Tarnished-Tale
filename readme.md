@@ -29,9 +29,9 @@ The current featureset of Tarnished Tale is extremely limited, implementing only
  - Run indefinitely on a supported architecture
  - Print status and error messages to the console
  - with the (correct) use of the HTML/JS client:
- ..-register new users
- ..-login as an existing user
- ..-gracefully logout as a user.
+   - register new users
+   - login as an existing user
+   - gracefully logout as a user.
 
 Password protection in transit is achieved using SSL, which is natively implemented by the modules Tarnished Tale depends on. In storage, passwords are handled by `bcrypt` and stored as uniquely-salted hashes.
 
@@ -58,8 +58,8 @@ Tarnished Tale is a huge project and we're known to get wedged. There's a few di
 ### Contribute With Code!
 FOSS is beautiful because Pull Requests. If you'd like to contribute to Tarnished Tale by helping directly to develop its code base, consider filing a code request. Stay in touch with ZAdamMac (@patchSavage87 on Twitter) or ask to join the discord. At this early stage, getting the client and the server running for testing purposes is *slightly* ideosyncratic.
 
-### Contribute with Bitcoin
-Or tiny fragments of Bitcoin, anyway. Contact ZAdamMac for the wallet. *-Hint: It doesn't actually exist yet*
+### Contribute Financially
+The final product will be some flavour of FOSS, but that doesn't mean I don't have some costs associated with the project. To help with that I've set up a [ko-fi.com](https://ko-fi.com/psavlabs) account to accept microdonations of CAD.
 
 ### Join the Discord Anyway!
 Hit @patchSavage87 on Twitter and ask to be added to the Tarnished Tale Development Discord. Even if you aren't into helping to write the code, don't feel comfortable in python, or don't have the time for that level of commitment, being around to act as a sounding board and provide your own insight into the process is an incredibly helpful thing to do!

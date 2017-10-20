@@ -58,11 +58,11 @@ The columns of the table `users` are:
 ##### Users
 A general category that contains all users, player or otherwise, listed by their name, with their value set to an encoded string which describes their relationship with their password's salted hash and salt. Passwords are stored as salted hashes using bcrypt.
 
-##### SysAdmins
-Category listing `user = True`. Users in this category have System Admin privledges and can authenticate to the admin console functions. This is not the same as Demigod or God privledges in-game, though there is some overlap.
+##### Admin
+Users in this category have System Admin privledges and can authenticate to the admin console functions. This is not the same as Demigod or God privledges in-game, though there is some overlap.
 
 ##### Banned
-Category listing users who are banned; their value is a unix timestamp of the expiration of their ban. Currently, only time-based bans of individual users is supported. Support for IP bans and indefinite bans is under development.
+Category listing users who are banned; `banExpy` is a unix timestamp of the expiration of their ban. Currently, only time-based bans of individual users is supported. Support for IP bans and indefinite bans is under development.
 
 ### Logs
 Logs are stored in the log directory. They are rotating binary files.
@@ -77,12 +77,12 @@ At present all userspace-accessable functions are hidden in the KnownCommands li
 Other functions for userspace are enumerated in knownCommands but are not yet defined and possess no utility.
 
 #### Admin Console Functions
-***Note: these functions are all accessable by the web client if prefixed with `ATERM_MSG`!***
+***Note: these functions are all accessable by the web client if prefixed with `ATERM_MSG`! This will have to be filtered in a later update***
 
  - `user pass` is the mandatory first message as the server will first wish to authenticate a connection as a valid sysadmin, regardless of actual client type. If successful (right password AND privledged user), the socket is registered as the admin socket.
  - `shutdown delay some-message` initiates a graceful shutdown after some delay (if `now` is provided, delay=0) in seconds. At regular intervals during the delay the reason message is broadcast to all registered-active users. This provides time for the queue of user activities to execute which will also be sufficient to save the game state before shutdown. Even if shutdown=0, the server will not come down until all enqueued tasks complete.
  - `logging level` changes the logging level to `level`. Debugging and Info are the only currently used levels. This change is saved into config.
- - `kick player reason banning? length` kicks a player, deregistering them as active and closing their socket after informing them of `reason`. If `banning`, bans the player for `length` days. Note that a ban will not clear until the next time that player attempts to log in. Even if expired, they will appear in the banned list until they attempt to log in, at which point the ban clears and the login continues.
+ - `kick player reason banning length` kicks a player, deregistering them as active and closing their socket after informing them of `reason`. If `banning`, bans the player for `length` days. Note that a ban will not clear until the next time that player attempts to log in. Even if expired, they will appear in the banned list until they attempt to log in, at which point the ban clears and the login continues.
  - `chpwd user pwd` changes the password of `user` to `pwd` and is intended to be used as a rudimentary method of password recovery.
  - `unban player` removes player from the banned list regardless of ban length remaining.
  - `quit` deregisters the admin socket and, if connected over admin.py, implicitly shuts down the admin console as well.
