@@ -3,19 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <title>Tarnished Tale Web Dashboard</title>
+    <link rel="stylesheet" type="text/css" href="admin.css">
 </head>
 <body>
     <div id="headerbar" class="topbar">
         <h1 class="textLogo">TT Admin Panel</h1>
+        <button type="button" onclick="closeSocket();" style="display:inline-block;margin-right:15px;margin-top:10px;float:right;">Disconnect</button>
+        <button type="button" onclick="openSocket();" style="display:inline-block;margin-top:10px;float:right;">Connect</button>
         <input class="addrbar" type="text" id="target" />
-        <button type="button" onclick="openSocket();">Connect</button>
-        <button type="button" onclick="closeSocket();">Disconnect</button>
     </div>
     <div id="dashboard" class="dashboard">
         <h1>Dashboard</h1>
         <p>To Be Implemented!</p>
     </div>
-    <div id="console" class="console" style="overflow:auto;"></div>
+    <div id="console" class="console"></div>
     <div id="input" class="input">
         <input class="messageout" type="text" id="messageout" />
         <button type="button" onclick="send();">Send</button>
