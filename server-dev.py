@@ -83,14 +83,18 @@ class roomLoader(object):
         npcs = None #  TODO implement when NPCs are.
         exits = getListExits(tempParser)
         scripts = None  # TODO implement in the arbirary scripting update
-        update = None
-        confuser = curWorld.execute(("SELECT room FROM %s WHERE room=?" % self.world), (self.fname,)).fetchall()
+        stmnt = ("SELECT room FROM %s WHERE room=?" % self.world)
+        confuser = curWorld.execute(stmnt, (self.fname,)).fetchall()
         if len(confuser) == 0:
             systemLogger.debug("This is a new world, inserting.")
-            # TODO Insert
+            stmnt=("INSERT INTO %s VALUES (?,?,?,?,?,?,?)" % self.world)
+            curWorld.execute(stmnt, (id, roomName, descr, listContents, npcs, exits, scripts) )
+            conWorld.commit()
         else:
             systemLogger.debug("This room already exists, updating.")
-            # TODO Update
+            stmnt=("UPDATE %s WHERE room=? SET (name=?, descr=?, listContents=?, listStaticNPCs=?, listExits=?, listScripts=?)" % self.world)
+            curWorld.execute(stmnt, (id, roomName, descr, listContents, npcs, exits, ))
+            conWorld.commit()
         tempParser = None
 
 # Defining Functions
