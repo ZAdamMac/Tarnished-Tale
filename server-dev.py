@@ -446,7 +446,7 @@ def startDB():  # We need to initialize a few databases using sqlite3
     global conWorld
     global curWorld
     conWorld = sqlite3.connect('Game Data/rooms.db')
-    curWorld = conUsers.cursor()
+    curWorld = conWorld.cursor()
     if not isDB:
         print("Warning: The rooms.db world database was not found.")
         print("Beggining first-pass world gen. This could take some time.")
