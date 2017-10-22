@@ -92,8 +92,8 @@ class roomLoader(object):
             conWorld.commit()
         else:
             systemLogger.debug("This room already exists, updating.")
-            stmnt=("UPDATE %s WHERE room=? SET (name=?, descr=?, listContents=?, listStaticNPCs=?, listExits=?, listScripts=?)" % self.world)
-            curWorld.execute(stmnt, (id, roomName, descr, listContents, npcs, exits, ))
+            stmnt=("UPDATE %s SET name=?, descr=?, listContents=?, listStaticNPCs=?, listExits=?, listScripts=? WHERE room=?" % self.world)
+            curWorld.execute(stmnt, (roomName, descr, listContents, npcs, exits, scripts, id, ))
             conWorld.commit()
         tempParser = None
 
@@ -103,7 +103,7 @@ def getListExits(parser):  # A function that parses the exit syntax to build the
     exitDirections = parser.options("Exits")
     for door in exitDirections:
         exitString = parser.get("Exits", door)
-        listExits = listExits+str(exitString)+"‽"
+        listExits = listExits+str(door+"§"+exitString)+"‽"
     return listExits
 
 def diff(first, second):  # simple function for diffing two lists.
@@ -148,7 +148,67 @@ def announce():
     print("Expecting connections on port %s" % portIn)
 
 async def taskMovement(message, requester):  # TODO implement
-    return None
+    msg = message
+    contents = msg.split(" ")
+    operation = contents[0].lower()
+    session = requester
+    curAddy = positions[requester]
+    posWorld = curAddy.split("/")[0]
+    posRoom = curAddy.split("/")[1]
+    stmnt = ("SELECT * FROM %s WHERE room=?" % posWorld)
+    roomentry = curWorld.execute(stmnt, (posRoom,)).fetchall()
+    roomid, name, descr, listContents, listNPCs, strExits, listScripts = roomentry[0]
+    listExits = strExits.split("‽")
+
+    if operation == "look":
+        try:
+            bar = contents[1]
+        except IndexError:
+            tx = await roomFormat(roomentry)
+            return tx
+        else: #We're looking at another room!
+            targetRoom = contents[1].lower
+            for direction in listExits:
+                path = direction.split("§")[0].lower()
+                if targetRoom == path:
+                    isClosed = direction.split("§")[3].lower()
+                    if isClosed == "true":
+                        tx = "That door is closed."
+                        return tx
+                    else:
+                        tx = await remoteViewer(direction.split("§")[2])
+                        return tx
+            tx = "You can't see there from here."
+            return tx
+    elif operation == "go":
+        try:
+            bar = contents[1]
+        except IndexError:
+            tx = "Where are you trying to go?"
+            return tx
+        destination = contents[1].lower
+        for direction in listExits:
+            way = direction.split("§")[0].lower()
+            if destination == way:
+                isClosed = direction.split("§")[3].lower
+                if isClosed == "true":
+                    tx = "That door is closed."
+                    return tx
+                else:
+                    positions.update({session:direction.split("§")[2]})
+                    tx = await remoteViewer(direction.split("§")[2])
+                    return tx
+        tx = "You don't know how to get there!"
+        return tx
+    elif operation == "open": # TODO implement
+        tx = "Nobody's taught you to open doors yet!"
+        return tx
+
+async def roomFormat(roomentry): # Special function that formats a whole room for prettyprint TODO implement
+    return "Reached Room Formatter"
+
+async def remoteViewer(target): # as roomFormat, but takes a target room for input.
+    return "Reached Remote Viewer"
 
 async def taskSys(message, requester):
     print("Made it to TaskSys")
@@ -169,7 +229,7 @@ async def taskSys(message, requester):
             strip1 = salted.lstrip("b'")
             strip2 = strip1.rstrip("'")
             salted = strip2
-            addargs = ([ contents[1], salted, False, False, False, False, False ])
+            addargs = ([ contents[1].lower(), salted, False, False, False, False, False ])
             conUsers.execute('INSERT INTO users VALUES (?,?,?,?,?,?,?)', addargs)
             conUsers.commit()
             tx = "Your registration was successful. Please record your password for future reference."
@@ -194,10 +254,10 @@ async def taskSys(message, requester):
                 return tx
 
         authed = False # You must always start with the decision that Alice is actually Mallory
-        authed = bcrypt.checkpw(contents[2].encode('utf8'), hash)
+        authed = bcrypt.checkpw(contents[2].encode('utf8'), hash.encode('utf8'))
         if authed:
             sessions.update(dict({session:contents[1]})) # TODO find a method by which dictionaries can be searched for key that match some value "foo"
-            positions.update(dict({session:None})) #TODO fix
+            positions.update(dict({session:logroom})) #TODO fix
             welcome = str("You are now known as %s." % contents[1])
             tx = welcome
             return tx
@@ -489,7 +549,7 @@ sockAdmin = None  # Global, gets set to the socket of the current admin console
 
 title = baseConfig.get("Game Information", "Game Name")
 portIn = baseConfig.get("Network Configuration", "Incoming Port")
-templateLogroom = baseConfig.get("World Controls", "CHAR Room")
+logroom = baseConfig.get("World Controls", "CHAR Room")
 
 knownCommands = {}
 for foo, bar, files in os.walk(abspathModDats):  # crawls the module files looking for their command info.

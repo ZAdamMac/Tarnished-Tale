@@ -10,6 +10,7 @@ kill : combat
 throw : combat
 shoot : combat
 go : movement
+open: movement
 look : movement
 warp : movement
 login : system
