@@ -228,7 +228,12 @@ async def roomFormat(roomentry): # Special function that formats a whole room fo
     return tx
 
 async def remoteViewer(target): # as roomFormat, but takes a target room for input.
-    return "Reached Remote Viewer"
+    tWorld,tRoom = target.split("/")
+    stmnt = ("SELECT * FROM %s WHERE room=?" % tWorld)
+    roomentry = curWorld.execute(stmnt, (tRoom,)).fetchall()
+    txReturned = await roomFormat(roomentry[0])
+    tx, dropped = txReturned.split("<br>There are no visible exits from this room.")
+    return tx
 
 async def taskSys(message, requester):
     print("Made it to TaskSys")
