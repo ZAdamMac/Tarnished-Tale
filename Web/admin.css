@@ -12,6 +12,8 @@ div.console{
     min-height: 350px;
     overflow-y: scroll;
     overflow-x: hidden;
+    background-color: #000000;
+    color: #F0F0F0;
 }
 
 h1.textLogo{

@@ -32,9 +32,13 @@ class worldLoader(object): #A handler class for worlds used in first-time spin u
         self.rateRefresh = tempParser.getint("Map Controls", "Dynamic Rate")
 
     def rebuild(self):
+        global conWorld
+        global curWorld
         systemLogger.info("Now Loading World: %s", self.name)
         if not extantWorld(self.name):
-            conWorld.execute("CREATE TABLE ? (room#, name, descr, listContents, listStaticNPCs, listExits, listScripts)", (self.name,))
+            buildstatement = ("CREATE TABLE %s (room, name, descr, listContents, listStaticNPCs, listExits, listScripts)" % self.name)
+            curWorld.execute(buildstatement)
+            conWorld.commit()
         rooms = []
         roomNums = []
         for root, null, roomfiles in os.walk(os.path.join(abspathWorlds, self.name)):
@@ -43,15 +47,15 @@ class worldLoader(object): #A handler class for worlds used in first-time spin u
                     pass
                 else:
                     roomNums.append(room)  # Also adds the roomnumber to an index to be used in a later step.
-        curWorld.execute("SELECT room# FROM ?", self.name)
+        curWorld.execute("SELECT room FROM %s" % self.name)  # You should never do this anywhere a user could touch it.
         extantRooms = curWorld.fetchall()
         newRooms = diff(roomNums, extantRooms)
         if self.Dynamic:
             work = roomNums
-            systemLogger.info("% is Dynamic, updating all rooms.", self.name)
+            systemLogger.info("%s is Dynamic, updating all rooms.", self.name)
         else:
             work = newRooms
-            systemLogger.info("% is Static, updating only newly-added rooms", self.name)
+            systemLogger.info("%s is Static, updating only newly-added rooms", self.name)
         for r in work:
             rooms.append(roomLoader(r, self.name))
         counter = 0
@@ -68,10 +72,10 @@ class roomLoader(object):
 
     def insert(self):
         #  TODO DEFINE
-        systemLogger.debug("Starting to parse %s in %s", self.name, self.world)
+        systemLogger.debug("Starting to parse %s in %s", self.fname, self.world)
 
         tempParser = configparser.ConfigParser()
-        tempParser.read(os.path.join(abspathWorlds, os.path.join(self.parent, self.fname)))
+        tempParser.read(os.path.join(abspathWorlds, os.path.join(self.world, self.fname)))
         id = self.fname
         roomName = tempParser.get("Description", "Name")
         descr = tempParser.get("Description", "Description")
@@ -80,10 +84,9 @@ class roomLoader(object):
         exits = getListExits(tempParser)
         scripts = None  # TODO implement in the arbirary scripting update
         update = None
-        confuser = curWorld.execute("SELECT room# FROM ? WHERE room#=?", (self.world, self.fname))
+        confuser = curWorld.execute(("SELECT room FROM %s WHERE room=?" % self.world), (self.fname,)).fetchall()
         if len(confuser) == 0:
             systemLogger.debug("This is a new world, inserting.")
-
             # TODO Insert
         else:
             systemLogger.debug("This room already exists, updating.")
@@ -92,11 +95,12 @@ class roomLoader(object):
 
 # Defining Functions
 def getListExits(parser):  # A function that parses the exit syntax to build the right list.
-    #TODO implement Properly
-    # Get exits in section exits!
-    # for exit in exits, get exit string!
-    # cat together all the strings into one string, seperated with ‽
-    return None
+    listExits = "‽"
+    exitDirections = parser.options("Exits")
+    for door in exitDirections:
+        exitString = parser.get("Exits", door)
+        listExits = listExits+str(exitString)+"‽"
+    return listExits
 
 def diff(first, second):  # simple function for diffing two lists.
     second = set(second)
@@ -140,7 +144,7 @@ def announce():
     print("Expecting connections on port %s" % portIn)
 
 async def taskMovement(message, requester):  # TODO implement
-    pass
+    return None
 
 async def taskSys(message, requester):
     print("Made it to TaskSys")
@@ -189,7 +193,7 @@ async def taskSys(message, requester):
         authed = bcrypt.checkpw(contents[2].encode('utf8'), hash)
         if authed:
             sessions.update(dict({session:contents[1]})) # TODO find a method by which dictionaries can be searched for key that match some value "foo"
-            positions.update(dict({session:logroom}))
+            positions.update(dict({session:None})) #TODO fix
             welcome = str("You are now known as %s." % contents[1])
             tx = welcome
             return tx
@@ -373,8 +377,6 @@ def startLogging():  # Initializes the various logging constructs, as globals.
     print("Starting the loggers. Logs are stored at %s" % abspathDirLogs)
     global userLogger  # The access record log
     global systemLogger # Logs access of and actions by the Admin Console
-    global abspathDirLogs
-    global baseConfig
 
     userLogger = logging.getLogger("[USER]")
     userLogger.setLevel(logging.INFO)
@@ -417,6 +419,7 @@ def startDB():  # We need to initialize a few databases using sqlite3
     isDB = os.path.isfile('Game Data/users.db')
     global conUsers
     global curUsers
+    global abspathWorlds
     conUsers = sqlite3.connect('Game Data/users.db')
     curUsers = conUsers.cursor()
 
@@ -442,7 +445,7 @@ def startDB():  # We need to initialize a few databases using sqlite3
     isDB = os.path.isfile('Game Data/rooms.db')
     global conWorld
     global curWorld
-    conUsers = sqlite3.connect('Game Data/rooms.db')
+    conWorld = sqlite3.connect('Game Data/rooms.db')
     curWorld = conUsers.cursor()
     if not isDB:
         print("Warning: The rooms.db world database was not found.")
@@ -453,8 +456,8 @@ def startDB():  # We need to initialize a few databases using sqlite3
 def bootRenew():  # Special world-renew called only on server launch.
     worlds = []
     for currentDir, subdirs, files in os.walk("Game Data/World Templates"):
-        if currentDir.endswith("Game Data/WorldTemplates"):
-            pass
+        if currentDir.endswith("Game Data/World Templates"):
+            continue
         else:
             thisWorld = worldLoader(os.path.basename(currentDir))
             worlds.append(thisWorld)
@@ -464,11 +467,11 @@ def bootRenew():  # Special world-renew called only on server launch.
 
 
 # Initialize the Config Parser&Fetch Globals, Build Queues, all that stuff
-abspathHome = os.getcwd()
-abspathBaseConfig = os.path.join(abspathHome, "Configuration/server_config.txt")
-abspathModDats = os.path.join(abspathHome, "Configuration/Module Files")
-abspathDirLogs = os.path.join(abspathHome, "Logs")
-abspathWorlds = os.path.join(abspathHome, "Game Data/World Templates")
+global abspathHome; abspathHome = os.getcwd()
+global abspathBaseconfig; abspathBaseConfig = os.path.join(abspathHome, "Configuration/server_config.txt")
+global abspathModDats; abspathModDats = os.path.join(abspathHome, "Configuration/Module Files")
+global abspathDirLogs; abspathDirLogs = os.path.join(abspathHome, "Logs")
+global abspathWorlds; abspathWorlds = os.path.join(abspathHome, "Game Data/World Templates")
 
 baseConfig = configparser.ConfigParser()   # We need several parsers. This one will handle the basic config file.
 baseConfig.read(abspathBaseConfig)

@@ -1,4 +1,7 @@
 #Tarnished Tale Server Administration Console
+#Development of this script is on hold, and the script is not functional.
+#For actual admin access you should use clientWebAdmin.html
+
 version = 'devBuild'
 
 #Importing Modules
