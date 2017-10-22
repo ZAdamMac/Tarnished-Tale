@@ -164,7 +164,7 @@ async def taskMovement(message, requester):  # TODO implement
         try:
             bar = contents[1]
         except IndexError:
-            tx = await roomFormat(roomentry)
+            tx = await roomFormat(roomentry[0])
             return tx
         else: #We're looking at another room!
             targetRoom = contents[1].lower
@@ -205,7 +205,27 @@ async def taskMovement(message, requester):  # TODO implement
         return tx
 
 async def roomFormat(roomentry): # Special function that formats a whole room for prettyprint TODO implement
-    return "Reached Room Formatter"
+    roomID, name, descr, listContents, listNPCs, stringExits, listScripts = roomentry
+    header = ("%s (%s)<br>" % (name, roomID))
+    body = ("%s</br>" % descr)
+    listExits = stringExits.split("‽")
+    listExitsPretty = []
+    for door in listExits:
+        try:
+            direction,description,destination,isClosed,isLocked,lockDF = door.split("§")
+            doorstring = ("To the <strong>%s<strong>: %s (%s)" % (direction, description, isClosed))
+            listExitsPretty.append(doorstring)
+        except ValueError:
+            pass
+    exits = ""
+    if len(listExitsPretty) > 0:
+        for door in listExitsPretty:
+            newexits = exits+door
+            exits = newexits
+    if exits == "":
+        exits = "<br>There are no visible exits from this room."
+    tx = header+body+exits
+    return tx
 
 async def remoteViewer(target): # as roomFormat, but takes a target room for input.
     return "Reached Remote Viewer"
