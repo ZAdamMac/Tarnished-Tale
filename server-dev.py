@@ -206,7 +206,7 @@ async def taskMovement(message, requester):  # TODO implement
 
 async def roomFormat(roomentry): # Special function that formats a whole room for prettyprint TODO implement
     roomID, name, descr, listContents, listNPCs, stringExits, listScripts = roomentry
-    header = ("%s (%s)<br>" % (name, roomID))
+    header = ("<br>%s (%s)<br>" % (name, roomID))
     body = ("%s</br>" % descr)
     listExits = stringExits.split("‽")
     listExitsPretty = []
