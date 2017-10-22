@@ -5,21 +5,22 @@
 <html>
     <head>
         <title>TT Test Rig</title>
+        <link type="text/css" rel="stylesheet" href="admin.css">
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width">
     </head>
     <body>
-
+        <!-- Server responses get written here -->
+        <div class="console" id="messages"></div>
         <div>
-            <input class="addybar" type="text" id="messageinput"/>
+            <input class="input" style="width:98%;float:center;" type="text" id="messageinput"/>
         </div>
         <div>
             <button type="button" onclick="openSocket();" >Open</button>
             <button type="button" onclick="send();" >Send</button>
             <button type="button" onclick="closeSocket();" >Close</button>
         </div>
-        <!-- Server responses get written here -->
-        <div id="messages"></div>
+
 
         <!-- Script to utilise the WebSocket -->
         <script type="text/javascript">
