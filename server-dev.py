@@ -9,6 +9,8 @@ import asyncio
 import bcrypt
 import configparser
 import datetime
+import html5lib
+from html5lib import sanitizer
 import logging
 import logging.handlers
 import os
@@ -380,7 +382,8 @@ async def taskTx(sock, message):  # a poor implementation of an output coroutine
     if message == b"202":
         await sock.send("Authentication Successful, you are now the admin terminal.")
     else:
-        await sock.send(message)
+        tx = p.parse(message)
+        await sock.send(tx)
         return
 
 async def dieGracefully(message):  # This function performs all actions related to the graceful shutdown
@@ -431,7 +434,8 @@ async def delay_by(seconds, tofinal):
 async def broadcastGlobal(message):
     for player in sessions:
         sock = sessions[player]
-        await sock.send(message)
+        tx = p.parse(message)
+        await sock.send(tx)
 
 
 async def sysKick(player, reason, ban, lengthBan):
@@ -554,6 +558,9 @@ def bootRenew():  # Special world-renew called only on server launch.
         w.rebuild()
     conWorld.commit()
 
+def startSanitizer():
+    global p
+    p = html5lib.HTMLParser(tokenizer=sanitizer.HTMLSanitizer)
 
 # Initialize the Config Parser&Fetch Globals, Build Queues, all that stuff
 global abspathHome; abspathHome = os.getcwd()
@@ -593,6 +600,7 @@ announce()
 startSSL()
 startLogging()
 startDB()
+startSanitizer()
 print("Great, starting service.")
 global running; running = True
 if baseConfig.getboolean("Network Configuration", "TLS") is True:
