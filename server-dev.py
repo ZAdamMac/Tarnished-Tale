@@ -11,6 +11,7 @@ import configparser
 import datetime
 import html5lib
 from html5lib import sanitizer
+import json
 import logging
 import logging.handlers
 import os
@@ -118,8 +119,8 @@ async def serveIn(sock, foo):  # The basic runtime of the entire server goes int
     global running
     while running:  # This is stupid, never do this.
         msg = await sock.recv()
-        response = await categorize(msg, sock)
-        await taskTx(sock, response)
+        response, mtype = await categorize(msg, sock)
+        await taskTx(sock, response, mtype) #TODO implement mtype
 
 async def categorize(rx, sock):
     contentsRX = rx.split(" ")
@@ -129,13 +130,13 @@ async def categorize(rx, sock):
         catRX = None
     if catRX == "system":
         tx = await taskSys(rx, sock)  # refers to an as-yet unimplemented JoinableQueue
-        return tx
+        return (tx, "ROOM")
     elif contentsRX[0] == "ATERM_MSG":  # this socket is attempting to authenticate as an admin terminal
         tx = await taskAdmin(rx, sock)
-        return tx
+        return (tx, "SYS")
     elif catRX == "movement":
         tx = await taskMovement(rx, sock)
-        return tx
+        return (tx, "ROOM")
     elif catRX is not None:
         tx = str("That request belongs to the %s category!" % catRX)
         return tx
@@ -373,7 +374,7 @@ async def authAdmin(message, sock):  # simple authentication of the admin connec
             tx = "Remote administration is not enabled on this server"
             return tx
 
-async def taskTx(sock, message):  # a poor implementation of an output coroutine.
+async def taskTx(sock, message, mtype):  # a poor implementation of an output coroutine.
     print("Made it to taskTX")
     if message == b"200":
         await sock.send("Goodbye.")
@@ -383,7 +384,7 @@ async def taskTx(sock, message):  # a poor implementation of an output coroutine
         await sock.send("Authentication Successful, you are now the admin terminal.")
     else:
         tx = p.parse(message)
-        await sock.send(tx)
+        await sock.send(json.dumps({"MSG_TYPE":mtype, "MSG":tx}))
         return
 
 async def dieGracefully(message):  # This function performs all actions related to the graceful shutdown
