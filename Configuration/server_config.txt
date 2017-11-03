@@ -17,5 +17,9 @@ TLS: True
 #If False, should still be possible to connect via SSH.
 Allow Remote Administration: False
 
+#Controls whether or not to use the new JSON protocol.
+#If false, messages are strings.
+Revert to Old Protocol: False
+
 [Logging Options]
 Debugging: True

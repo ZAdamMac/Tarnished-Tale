@@ -120,7 +120,7 @@ async def serveIn(sock, foo):  # The basic runtime of the entire server goes int
     while running:  # This is stupid, never do this.
         msg = await sock.recv()
         response, mtype = await categorize(msg, sock)
-        await taskTx(sock, response, mtype) #TODO implement mtype
+        await taskTx(sock, response, mtype)
 
 async def categorize(rx, sock):
     contentsRX = rx.split(" ")
@@ -375,6 +375,7 @@ async def authAdmin(message, sock):  # simple authentication of the admin connec
             return tx
 
 async def taskTx(sock, message, mtype):  # a poor implementation of an output coroutine.
+    global revertProtocol
     print("Made it to taskTX")
     if message == b"200":
         await sock.send("Goodbye.")
@@ -383,9 +384,14 @@ async def taskTx(sock, message, mtype):  # a poor implementation of an output co
     if message == b"202":
         await sock.send("Authentication Successful, you are now the admin terminal.")
     else:
-        tx = p.parse(message)
-        await sock.send(json.dumps({"MSG_TYPE":mtype, "MSG":tx}))
-        return
+        if revertProtocol:
+            tx = p.parse(message)
+            await sock.send(tx)
+            return
+        else:
+            tx = p.parse(message)
+            await sock.send(json.dumps({"MSG_TYPE":mtype, "MSG":tx}))
+            return
 
 async def dieGracefully(message):  # This function performs all actions related to the graceful shutdown
     args = message.split(" ")
@@ -583,6 +589,7 @@ sockAdmin = None  # Global, gets set to the socket of the current admin console
 title = baseConfig.get("Game Information", "Game Name")
 portIn = baseConfig.get("Network Configuration", "Incoming Port")
 logroom = baseConfig.get("World Controls", "CHAR Room")
+revertProtocol = baseConfig.getboolean("Network Configuration", "Revert to Old Protocol")
 
 knownCommands = {}
 for foo, bar, files in os.walk(abspathModDats):  # crawls the module files looking for their command info.
