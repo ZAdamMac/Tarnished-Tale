@@ -114,7 +114,6 @@ def diff(first, second):  # simple function for diffing two lists.
     return [item for item in first if item not in second]
 
 async def serveIn(sock, foo):  # The basic runtime of the entire server goes into this function.
-    print("New Connection by %s:%s" % (sock.remote_address[0], sock.remote_address[1]))
     await sock.send("Welcome to %s" % title) # TODO Generalize, call from config
     global running
     while running:  # This is stupid, never do this.
@@ -150,7 +149,7 @@ def announce():
     print("Currently hosting %s" % title)
     print("Expecting connections on port %s" % portIn)
 
-async def taskMovement(message, requester):  # TODO implement
+async def taskMovement(message, requester):  # TODO test
     msg = message
     contents = msg.split(" ")
     operation = contents[0].lower()
@@ -246,9 +245,9 @@ async def taskSys(message, requester):
     session = requester
 
     if operation == "register":  # expects "register user pass"
-        print("%s is requesting to add user %s to the game." % (session.remote_address[0], contents[1]))
+        userLogger.info("%s is requesting to add user %s to the game." % (session.remote_address[0], contents[1]))
         if extantUser(contents[1]):  #  Prevent overwrite of existing user entries
-            print("Request cannot be completed - existing user.")
+            userLogger.info("Request cannot be completed - existing user.")
             tx = "This user already exists. Please change usernames and try again."
             return tx
         else:  # The user doesn't exist so let's add it
@@ -263,7 +262,7 @@ async def taskSys(message, requester):
             tx = "Your registration was successful. Please record your password for future reference."
             return tx
     elif operation == "login":  # expects "login user pass"
-        print("%s is attempting to log in as %s" % (session.remote_address[0], contents[1])) # TODO change to log entry
+        userLogger.info("%s is attempting to log in as %s" % (session.remote_address[0], contents[1])) # TODO change to log entry
         fooargs = (contents[1].lower())
         curse = conUsers.cursor()
         curse.execute('SELECT userID, passHash, isAdmin, isBanned, banExpy, MFAEnabled, token FROM users WHERE userID=?', (fooargs,))
@@ -288,6 +287,7 @@ async def taskSys(message, requester):
             positions.update(dict({session:logroom})) #TODO fix
             welcome = str("You are now known as %s." % contents[1])
             tx = welcome
+            userLogger.info("They were successful")
             return tx
         else:
             tx = "Login Failed"  #Purposefully vague status
@@ -326,6 +326,7 @@ async def taskAdmin(message, sock):  # Handles messages from the admin console s
     else:
         if msg[1] == "shutdown":  # Implements graceful shutdown!
             #Expects some arguments in the order shutdown now/delay reason
+            systemLogger.info("Admin has registered a shutdown for reason: %s" % msg[3])
             tx = await dieGracefully(message)
             return tx
         elif msg[1] == "logging":  # Drop to a logging configuration editor
@@ -366,6 +367,7 @@ async def authAdmin(message, sock):  # simple authentication of the admin connec
             if bcrypt.checkpw(pwd.encode("utf8"), hash):
                 global sockAdmin; sockAdmin = sock
                 tx = b"202"  # 202 "Request Accepted" indicates successful Auth.
+                systemLogger.info("%s authed as admin from %s" % (user, sock.remote_address[0]))
                 return tx
             else:
                 tx = "Authentication Error, Please Retry Connection"
@@ -376,7 +378,6 @@ async def authAdmin(message, sock):  # simple authentication of the admin connec
 
 async def taskTx(sock, message, mtype):  # a poor implementation of an output coroutine.
     global revertProtocol
-    print("Made it to taskTX")
     if message == b"200":
         await sock.send("Goodbye.")
         await sock.close()
@@ -415,6 +416,7 @@ async def dieGracefully(message):  # This function performs all actions related 
     conWorld.commit()
     tx = "Shutdown Complete, exiting."
     print("Shutdown by admin console, exiting.")
+
     asyncio.get_event_loop().stop()
     return tx
 
@@ -454,7 +456,9 @@ async def sysKick(player, reason, ban, lengthBan):
 
     if not ban:
         sock.send("You have been kicked by the system for: %s" % reason)
+        userLogger.info("%s kicked by admin because %s" % (player, reason))
     else:
+        userLogger.info("Admin has banned %s for %s days because: %s" % (player, lengthBan, reason))
         sock.send("You have been banned by the system for %s days for: %s" % (lengthBan, reason))
         now = datetime.datetime.now()
         future = datetime.timedelta(days=lengthBan)
@@ -471,6 +475,7 @@ async def sysUnban(player):
     conUsers.execute('UPDATE users SET isBanned=False, banExpy=False WHERE userID=?', player)
     conUsers.commit()
     tx = ("%s has been unbanned" % player)
+    userLogger.info("%s was unbanned by administrative override" % player)
     return tx
 
 def startLogging():  # Initializes the various logging constructs, as globals.
@@ -499,6 +504,8 @@ async def adminChpwd(target, newpass):
     conUsers.execute('UPDATE users SET passHash=? WHERE userID=?', directions)
     conUsers.commit()
     tx = ("Password reset successful; notify %s their password is reset!" % target)
+    userLogger.info("The Admin changed %s's password!" % target)
+    systemLogger.info("The current Admin changed the password of %s" % target)
     return tx
 
 async def setLoggingLevel(level):
@@ -549,7 +556,7 @@ def startDB():  # We need to initialize a few databases using sqlite3
     curWorld = conWorld.cursor()
     if not isDB:
         print("Warning: The rooms.db world database was not found.")
-        print("Beggining first-pass world gen. This could take some time.")
+        print("Beginning first-pass world gen. This could take some time.")
     bootRenew()
     print("World Database Loaded.")
 
