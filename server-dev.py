@@ -483,6 +483,8 @@ def startLogging():  # Initializes the various logging constructs, as globals.
     global userLogger  # The access record log
     global systemLogger # Logs access of and actions by the Admin Console
 
+    logging.basicConfig(format='%(asctime)s %(message)s')
+
     userLogger = logging.getLogger("[USER]")
     userLogger.setLevel(logging.INFO)
     systemLogger = logging.getLogger("[SYSTEM]")

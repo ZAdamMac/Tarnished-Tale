@@ -1,0 +1,64 @@
+# $mod_skills.dat files like this one include all the skills and tied-in abilities used by $mod.
+# This isn't intended for regular ops to modify, but for developers and moddevs to play with.
+# The abilities listed under a skill entry must be mirrored in the module's associated .dat in
+# "/Configuration/Module Files" to be used.
+
+[Acumen]
+Base: CHA
+Desc: By education or innate talent you have acquired the nose for business. Speaking generally you are skilled at finding the best bargains, earning the best rates, and deriving the best profit. This skill modifies the prices you pay and are paid by NPC merchants and your ability to appraise an item's worth.
+hasAbilities: True
+appraise: (use: apprase <target>) Evaluate the currency value of a given object. Accuracy depends on overall skill.
+
+[Agility]
+Base: DEX
+Desc: Talent and training have made you nimble, quick on your feet, and flighty. Agility is a useful skill modifying your chance of dodging certain attacks, as well as climbing, balancing, tumbling, and all other manner of skillful movement.
+hasAbilities: False
+
+[Archery]
+Base: DEX*3
+Desc: Your chance to hit with weapons of the bow or crossbow variety.
+hasAbilities: False
+
+[Concealment]
+Base: WIS
+Desc: You have become expert in the art of moving unseen. In the right conditions, you are a shadow.
+hasAbilities: True
+sneak: (use: sneak to toggle on/off) While sneaking, you are afforded an opportunity to bypass notice by certain NPCs and players. However, many may recognize you as hostile if they do notice you, where otherwise you would be permitted free movement.
+
+[Chemistry]
+Base: 00
+Desc: Given the right precursors, you have the ability to manufacture a variety of chemical products such as various reagents, propellants, and even explosives.
+hasAbilities: False
+
+[Cryptography]
+Base: INT*0.33
+Desc: There are plenty of reasons to wish to leave secret messages and not all of them are underhanded. A talented cryptographer can break riddles and puzzles that leave others stumped. Guilds need cryptographers who can pass messages in secret.
+hasAbilities: True
+analyse: (use: analyse <object> or here) You use your knowledge of modern and historical codes to attempt to break the target object or room's message.
+encrypt: (use: encrypt <target> <key>) Generate a secret message, the resultant difficulty factor of which is a function of your success at the task and skill level.
+decrypt: (use: decrypt <target> <key>) Assuming you know the key to a message, you can always decrypt it regardless of skill.
+
+[Disguise]
+Base: CHA
+Desc: There can be advantages to going unknown. A disguise can't change your race, but it can prevent you from being recognized by other means. Invoke disguise to sneak in plain sight and avoid faction aggro or reap factional rewards.
+hasAbilities: True
+disguise: (use: disguise) Disguise oneself, given the materials to do so. While disquised, guards and others may still have a chance to recognize you.
+
+[Listen]
+#Whenever a player is standing still, they are "listening". This is a remote sort of detection check against both sneaking and simple movement in other rooms. See docs.
+Base: WIS*3
+Desc: Your natural perception and training have given you a knack for hearing. Anyone can hear a conversation, but your is exceptional.
+hasAbilities: False
+
+[Locksmithing]
+Base: 00
+Desc: Not all who carry picks are criminals, but most are. An expert locksmith is both an opener and builder of locks. The morality of the craft is equal to your own.
+hasAbilities: True
+pick: (use: pick <target>) Attack the lock on the target exit or object, with each attempt having both a chance of succeeding and a chance of breaking your picks. The difficulty factor is determined by both your tools and the quality of the lock.
+impression: (use: impression <target>) Create a key for the target door given the right materials.
+enlock: (use: enlock <target> using <kit>) Given a Lock Kit, create a lock on the target exit or container. The difficulty factor of the lock comes from your skill level, a success bonus, and the quality of the kit.
+
+[Pharmacology]
+Base: 05
+Desc: Training has made you skilled at preparing useful medical products such as tinctures, oils, salves, ointments, and the like. With enough materials and a laboratory you can prepare items to both heal and hinder.
+hasAbilities: False
