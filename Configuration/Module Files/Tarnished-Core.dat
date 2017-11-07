@@ -18,3 +18,16 @@ quit : system
 register : system
 birth : character
 wake : character
+reap : ability
+sneak: ability
+hide: ability
+analyse: ability
+decrypt: ability
+encrypt: ability
+disguise: ability
+log: ability
+skin: ability
+pick: ability
+impression: ability
+enlock: ability
+prospect: ability
