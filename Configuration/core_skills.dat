@@ -14,9 +14,46 @@ Base: DEX
 Desc: Talent and training have made you nimble, quick on your feet, and flighty. Agility is a useful skill modifying your chance of dodging certain attacks, as well as climbing, balancing, tumbling, and all other manner of skillful movement.
 hasAbilities: False
 
+[Agriculture]
+Base: 05
+Desc: You are talented at identifying plants, funguses, and similar natural elements and refining them into base products used by higher forms of crafting.
+hasAbilities: True
+reap: (use: reap <target>) Obtain target for later refining.
+
+
+[Alertness]
+Base: WIS*3
+Desc: By training you have amplified your awareness. Trusting your senses has given you a greater sense of your surroundings, including those who might seek to avoid your notice.
+hasAbilities: False
+
 [Archery]
 Base: DEX*3
 Desc: Your chance to hit with weapons of the bow or crossbow variety.
+hasAbilities: False
+
+[Armouring]
+Base: 00
+Desc: You have aquired some skill in the manufacturing of armour, of all kinds. With the right starting materials, you can produce armour fit for knave or Knight.
+hasAbilities: False
+
+[Axemanship]
+Base: STR*3
+Desc: A measure of your particular talent in the use of axes, including those of the one- and two-handed variety.
+hasAbilities: False
+
+[Carpentry]
+Base: 00
+Desc: Given the right precursors, you have some skill in the manufacture of furnishings, containers, doors, and other important components.
+hasAbilities: False
+
+[Clobbering]
+Base: STR*3
+Desc: A measure of your particular skill with clubs, maces, hammers, and like like, of all sizes.
+hasAbilities: False
+
+[Chemistry]
+Base: 00
+Desc: Given the right precursors, you have the ability to manufacture a variety of chemical products such as various reagents, propellants, and even explosives.
 hasAbilities: False
 
 [Concealment]
@@ -24,11 +61,6 @@ Base: WIS
 Desc: You have become expert in the art of moving unseen. In the right conditions, you are a shadow.
 hasAbilities: True
 sneak: (use: sneak to toggle on/off) While sneaking, you are afforded an opportunity to bypass notice by certain NPCs and players. However, many may recognize you as hostile if they do notice you, where otherwise you would be permitted free movement.
-
-[Chemistry]
-Base: 00
-Desc: Given the right precursors, you have the ability to manufacture a variety of chemical products such as various reagents, propellants, and even explosives.
-hasAbilities: False
 
 [Cryptography]
 Base: INT*0.33
@@ -44,11 +76,22 @@ Desc: There can be advantages to going unknown. A disguise can't change your rac
 hasAbilities: True
 disguise: (use: disguise) Disguise oneself, given the materials to do so. While disquised, guards and others may still have a chance to recognize you.
 
-[Listen]
-#Whenever a player is standing still, they are "listening". This is a remote sort of detection check against both sneaking and simple movement in other rooms. See docs.
-Base: WIS*3
-Desc: Your natural perception and training have given you a knack for hearing. Anyone can hear a conversation, but your is exceptional.
+[Forestry]
+Base: 05
+Desc: You are talented in aquiring wood and other arboreal products and converting them into useful forms for sale.
+hasAbilities: True
+log: (use: log) Prospect the current room and aquire any useful tree-like materials.
+
+[Gunsmithing]
+Base: 00
+Desc: You are aware of the latest practices in manufacturing firearms, and given the right materials, you can produce and modify firearms and their ammunition.
 hasAbilities: False
+
+[Leatherworking]
+Base: 00
+Desc: The dead have value left. You are talented at preparing and preserving the skins of various creatures, as well as other parts which may prove useful.
+hasAbilities: True
+skin: (use: skin <target>) Harvest a target for skin and organs which you can later reprocess.
 
 [Locksmithing]
 Base: 00
@@ -58,7 +101,28 @@ pick: (use: pick <target>) Attack the lock on the target exit or object, with ea
 impression: (use: impression <target>) Create a key for the target door given the right materials.
 enlock: (use: enlock <target> using <kit>) Given a Lock Kit, create a lock on the target exit or container. The difficulty factor of the lock comes from your skill level, a success bonus, and the quality of the kit.
 
+[Machining]
+Base: 00
+Desc: With the right equipment, you can produce all sorts of metallic components, including weapons, and the crafting components for Gunsmiths and Locksmiths.
+hasAbilities: False
+
+[Marksmanship]
+Base: DEX*3
+Desc: Your skill at arms with firearms, and ability to maintain them.
+hasAbilities: False
+
+[Metalurgy]
+Base: 00
+Desc: You are familiar with the ores and minerals of the world and know the best ways to harvest and refine them.
+hasAbilities: True
+prospect: (use: prospect) Search the current room for ore to harvest.
+
 [Pharmacology]
 Base: 05
 Desc: Training has made you skilled at preparing useful medical products such as tinctures, oils, salves, ointments, and the like. With enough materials and a laboratory you can prepare items to both heal and hinder.
+hasAbilities: False
+
+[Swordsmanship]
+Base: STR*3
+Desc: This is your skill at arms with swords, knives, and other bladed weapons, including those that are often thrown.
 hasAbilities: False
