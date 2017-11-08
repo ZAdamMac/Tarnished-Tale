@@ -100,6 +100,11 @@ class roomLoader(object):
             conWorld.commit()
         tempParser = None
 
+class characterSheet(object):  #  A temporary object to hold a character for manipulations from ability, and other checks.
+
+    def __init__(self, targetCharacter):  # on init, briefly grab read from the SQL db and process accordingly
+        self.target = targetCharacter #TODO Implement in full
+
 # Defining Functions
 def getListExits(parser):  # A function that parses the exit syntax to build the right list.
     listExits = "‽"
@@ -136,6 +141,9 @@ async def categorize(rx, sock):
     elif catRX == "movement":
         tx = await taskMovement(rx, sock)
         return (tx, "ROOM")
+    elif catRX == "ability":
+        tx = await taskAbility(rx, sock)
+        return (tx, "ROOM")
     elif catRX is not None:
         tx = str("That request belongs to the %s category!" % catRX)
         return tx
@@ -148,6 +156,13 @@ def announce():
     print("Welcome to Tarnished Tale Server %s" % version)
     print("Currently hosting %s" % title)
     print("Expecting connections on port %s" % portIn)
+
+async def taskAbility(message, requester):
+    # TODO define this process. Something like:
+    # From requester, fetch relevant charsheet object
+    # Figure out which operation to do
+    # Do it
+    pass
 
 async def taskMovement(message, requester):  # TODO test
     msg = message
