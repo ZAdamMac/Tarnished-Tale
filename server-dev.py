@@ -74,7 +74,6 @@ class roomLoader(object):
         self.world = parent
 
     def insert(self):
-        #  TODO DEFINE
         systemLogger.debug("Starting to parse %s in %s", self.fname, self.world)
 
         tempParser = configparser.ConfigParser()
@@ -82,10 +81,10 @@ class roomLoader(object):
         id = self.fname
         roomName = tempParser.get("Description", "Name")
         descr = tempParser.get("Description", "Description")
-        listContents = None #  TODO implement in the items update
-        npcs = None #  TODO implement when NPCs are.
+        listContents = None # Inventory is unsupported and therefore nope.
+        npcs = None #  npcs temporarily unimplemented
         exits = getListExits(tempParser)
-        scripts = None  # TODO implement in the arbirary scripting update
+        scripts = None  # not implemented obviously.
         stmnt = ("SELECT room FROM %s WHERE room=?" % self.world)
         confuser = curWorld.execute(stmnt, (self.fname,)).fetchall()
         if len(confuser) == 0:
@@ -119,7 +118,7 @@ def diff(first, second):  # simple function for diffing two lists.
     return [item for item in first if item not in second]
 
 async def serveIn(sock, foo):  # The basic runtime of the entire server goes into this function.
-    await sock.send("Welcome to %s" % title) # TODO Generalize, call from config
+    await sock.send(baseConfig.get("Game Information", "Welcome"))
     global running
     while running:  # This is stupid, never do this.
         msg = await sock.recv()
@@ -152,7 +151,7 @@ async def categorize(rx, sock):
         return tx
 
 def announce():
-    # TODO implement a screen clear here.
+    os.system("cls" if os.name=="nt" else "clear")
     print("Welcome to Tarnished Tale Server %s" % version)
     print("Currently hosting %s" % title)
     print("Expecting connections on port %s" % portIn)
@@ -221,7 +220,7 @@ async def taskMovement(message, requester):  # TODO test
         tx = "Nobody's taught you to open doors yet!"
         return tx
 
-async def roomFormat(roomentry): # Special function that formats a whole room for prettyprint TODO implement
+async def roomFormat(roomentry): # Special function that formats a whole room for prettyprint
     roomID, name, descr, listContents, listNPCs, stringExits, listScripts = roomentry
     header = ("<br>%s (%s)<br>" % (name, roomID))
     body = ("%s</br>" % descr)
@@ -277,7 +276,7 @@ async def taskSys(message, requester):
             tx = "Your registration was successful. Please record your password for future reference."
             return tx
     elif operation == "login":  # expects "login user pass"
-        userLogger.info("%s is attempting to log in as %s" % (session.remote_address[0], contents[1])) # TODO change to log entry
+        userLogger.info("%s is attempting to log in as %s" % (session.remote_address[0], contents[1]))
         fooargs = (contents[1].lower())
         curse = conUsers.cursor()
         curse.execute('SELECT userID, passHash, isAdmin, isBanned, banExpy, MFAEnabled, token FROM users WHERE userID=?', (fooargs,))
@@ -298,8 +297,8 @@ async def taskSys(message, requester):
         authed = False # You must always start with the decision that Alice is actually Mallory
         authed = bcrypt.checkpw(contents[2].encode('utf8'), hash.encode('utf8'))
         if authed:
-            sessions.update(dict({session:contents[1]})) # TODO find a method by which dictionaries can be searched for key that match some value "foo"
-            positions.update(dict({session:logroom})) #TODO fix
+            sessions.update(dict({session:contents[1]}))
+            positions.update(dict({session:logroom}))
             welcome = str("You are now known as %s." % contents[1])
             tx = welcome
             userLogger.info("They were successful")

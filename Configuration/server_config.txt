@@ -1,5 +1,6 @@
 [Game Information]
 Game Name: Tarnished Tale POC
+Welcome: Welcome to the Tarnished Tale POC/Test World!
 
 [World Controls]
 CHAR Room: OOC/Spawnroom
