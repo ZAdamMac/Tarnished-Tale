@@ -289,7 +289,7 @@ async def taskSys(message, requester):
         if banned:
             now = datetime.datetime.now().timestamp()
             if expyBan >= now:
-                conUsers.execute('UPDATE users SET banned=False WHERE userid=?', uid)
+                conUsers.execute('UPDATE users SET banned=False WHERE userID=?', uid)
             else:
                 tx = "Login Failed"
                 return tx
@@ -314,8 +314,8 @@ async def taskSys(message, requester):
         return tx
 
 def extantUser(uname):
-    conUsers.execute('SELECT userID FROM users WHERE userID = ?', (uname,))
-    ret = conUsers.cursor().fetchall()
+    curUsers.execute(''' SELECT userID FROM users WHERE userID=? ''', (uname,))
+    ret = curUsers.fetchall()
     if len(ret) == 0:
         return False
     else:
@@ -401,7 +401,7 @@ async def taskTx(sock, message, mtype):  # a poor implementation of an output co
     else:
         if revertProtocol:
             tx = p.parse(message)
-            await sock.send(tx)
+            await sock.send(str(tx))
             return
         else:
             tx = p.parse(message)
@@ -554,7 +554,7 @@ def startDB():  # We need to initialize a few databases using sqlite3
         uid = input("Username:")
         match = False
         while not match:
-            pass1 = input("Password:")
+            pass1 = input("Password:") #TODO lets turn this into something more secure shall we!
             pass2 = input("Repeat Password:")
             if pass1 != pass2:
                 print("Password's don't match!")

@@ -20,7 +20,7 @@ Allow Remote Administration: False
 
 #Controls whether or not to use the new JSON protocol.
 #If false, messages are strings.
-Revert to Old Protocol: False
+Revert to Old Protocol: True
 
 [Logging Options]
 Debugging: True
