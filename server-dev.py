@@ -539,11 +539,11 @@ async def setLoggingLevel(level):
 
 def startDB():  # We need to initialize a few databases using sqlite3
     print("Fetching the Databases")
-    isDB = os.path.isfile('Game Data/users.db')
+    isDB = os.path.isfile('Game Data/game.db')
     global conUsers
     global curUsers
     global abspathWorlds
-    conUsers = sqlite3.connect('Game Data/users.db')
+    conUsers = sqlite3.connect('Game Data/game.db')
     curUsers = conUsers.cursor()
 
     if not isDB:
@@ -565,13 +565,12 @@ def startDB():  # We need to initialize a few databases using sqlite3
         conUsers.commit()
     print("Users Database Loaded")
 
-    isDB = os.path.isfile('Game Data/rooms.db')
     global conWorld
     global curWorld
-    conWorld = sqlite3.connect('Game Data/rooms.db')
+    conWorld = sqlite3.connect('Game Data/game.db')
     curWorld = conWorld.cursor()
     if not isDB:
-        print("Warning: The rooms.db world database was not found.")
+        print("Warning: The world database was not found.")
         print("Beginning first-pass world gen. This could take some time.")
     bootRenew()
     print("World Database Loaded.")
