@@ -104,6 +104,43 @@ class characterSheet(object):  #  A temporary object to hold a character for man
     def __init__(self, targetCharacter):  # on init, briefly grab read from the SQL db and process accordingly
         self.target = targetCharacter #TODO Implement in full
 
+class skillLoader(object):
+
+    def __init__(self, path):
+        self.abs = path
+        self.reader = configparser.ConfigParser()
+
+    def refresh(self):
+        self.reader.read(self.abs)
+        listSkills = self.reader.sections(self)
+
+        curUsers.execute("SELECT name FROM skills")
+        extantSkills = curUsers.fetchall()
+
+        for skill in listSkills:
+            options = self.reader.options(skill)
+            desc = self.reader.get(skill, "desc")
+            scoreBase = self.reader.get(skill,"base")
+            hasAbilities = self.reader.getBoolean(skill, "hasAbilities")
+            if hasAbilities:
+                strAbilities = "‽"
+                for option in options:
+                    if option is "desc" or "base" or "hasAbilities":
+                        continue
+                    else:
+                        nameAbility = option
+                        descAbility = self.reader.get(skill, option)
+                        entry = nameAbility+"§"+descAbility
+                        strAbilities += entry
+                strAbilities += "‽"
+            fullEntry = (skill, strAbilities, desc, scoreBase)
+            if skill not in extantSkills:
+                curUsers.execute("INSERT INTO skills (?,?,?,?)", (fullEntry,))
+            else:
+                fullEntry = (strAbilities, desc, scoreBase, skill)
+                curUsers.execute("UPDATE skills SET strAbilities=?, desc=?, scoreBase=? WHERE name=?", (fullEntry,))
+        conUsers.commit()
+
 # Defining Functions
 def getListExits(parser):  # A function that parses the exit syntax to build the right list.
     listExits = "‽"
@@ -569,6 +606,8 @@ def startDB():  # We need to initialize a few databases using sqlite3
                 match = True
         fooargs = [uid, bcrypt.hashpw(pass1.encode('utf8'), bcrypt.gensalt()), True, False, 0, False, 0]
         conUsers.execute('INSERT INTO users (userID, passHash, isAdmin, isBanned, banExpy, MFAEnabled, token) VALUES (?,?,?,?,?,?,?)', fooargs)
+        conUsers.execute('''CREATE TABLE skills
+                            (name, strAbilities, descr, scoreBase)''')
         conUsers.commit()
     print("Users Database Loaded")
 
@@ -582,6 +621,9 @@ def startDB():  # We need to initialize a few databases using sqlite3
     bootRenew()
     print("World Database Loaded.")
 
+    loadSkills()
+    print("Skills Database Loaded")
+
 def bootRenew():  # Special world-renew called only on server launch.
     worlds = []
     for currentDir, subdirs, files in os.walk("Game Data/World Templates"):
@@ -593,6 +635,15 @@ def bootRenew():  # Special world-renew called only on server launch.
     for w in worlds:
         w.rebuild()
     conWorld.commit()
+
+def loadSkills():  # Crawl for skill description files and load them into the db.
+    skillbooks = []
+    for currentDir, subdirs, files in os.walk("Configuration/Module Files"):
+        for file in files:
+            thisSkillBook = skillLoader(os.path.join(currentDir, file))
+            skillbooks.append(thisSkillBook)
+    for b in skillbooks:
+        b.refresh()
 
 # Initialize the Config Parser&Fetch Globals, Build Queues, all that stuff
 global abspathHome; abspathHome = os.getcwd()
