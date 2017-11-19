@@ -112,7 +112,7 @@ class skillLoader(object):
 
     def refresh(self):
         self.reader.read(self.abs)
-        listSkills = self.reader.sections(self)
+        listSkills = self.reader.sections()
 
         curUsers.execute("SELECT name FROM skills")
         extantSkills = curUsers.fetchall()
@@ -121,24 +121,24 @@ class skillLoader(object):
             options = self.reader.options(skill)
             desc = self.reader.get(skill, "desc")
             scoreBase = self.reader.get(skill,"base")
-            hasAbilities = self.reader.getBoolean(skill, "hasAbilities")
+            hasAbilities = self.reader.getboolean(skill, "hasAbilities")
             if hasAbilities:
                 strAbilities = "‽"
                 for option in options:
                     if option is "desc" or "base" or "hasAbilities":
-                        continue
+                        strAbilities += "‽"
                     else:
                         nameAbility = option
                         descAbility = self.reader.get(skill, option)
                         entry = nameAbility+"§"+descAbility
                         strAbilities += entry
-                strAbilities += "‽"
+                        strAbilities += "‽"
             fullEntry = (skill, strAbilities, desc, scoreBase)
             if skill not in extantSkills:
-                curUsers.execute("INSERT INTO skills (?,?,?,?)", (fullEntry,))
+                curUsers.execute("INSERT INTO skills (name, strAbilities, desc, scoreBase) VALUES (?,?,?,?)", fullEntry)
             else:
                 fullEntry = (strAbilities, desc, scoreBase, skill)
-                curUsers.execute("UPDATE skills SET strAbilities=?, desc=?, scoreBase=? WHERE name=?", (fullEntry,))
+                curUsers.execute("UPDATE skills SET strAbilities=?, desc=?, scoreBase=? WHERE name=?", fullEntry)
         conUsers.commit()
 
 # Defining Functions
@@ -640,8 +640,9 @@ def loadSkills():  # Crawl for skill description files and load them into the db
     skillbooks = []
     for currentDir, subdirs, files in os.walk("Configuration/Module Files"):
         for file in files:
-            thisSkillBook = skillLoader(os.path.join(currentDir, file))
-            skillbooks.append(thisSkillBook)
+            if file.endswith("skills.dat"):
+                thisSkillBook = skillLoader(os.path.join(currentDir, file))
+                skillbooks.append(thisSkillBook)
     for b in skillbooks:
         b.refresh()
 
