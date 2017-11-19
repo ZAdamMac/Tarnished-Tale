@@ -103,6 +103,9 @@ class characterSheet(object):  #  A temporary object to hold a character for man
 
     def __init__(self, targetCharacter):  # on init, briefly grab read from the SQL db and process accordingly
         self.target = targetCharacter #TODO Implement in full
+        curUsers.execute("SELECT * FROM characters WHERE name=?", (targetCharacter,))
+        self.compressed = curUsers.fetchall()
+
 
 class skillLoader(object):
 
@@ -122,23 +125,22 @@ class skillLoader(object):
             desc = self.reader.get(skill, "desc")
             scoreBase = self.reader.get(skill,"base")
             hasAbilities = self.reader.getboolean(skill, "hasAbilities")
+            strAbilities = "‽"
             if hasAbilities:
-                strAbilities = "‽"
                 for option in options:
-                    if option is "desc" or "base" or "hasAbilities":
-                        strAbilities += "‽"
+                    if option in ["desc", "base", "hasabilities", "hasAbilities"]:
+                        continue
                     else:
                         nameAbility = option
                         descAbility = self.reader.get(skill, option)
-                        entry = nameAbility+"§"+descAbility
-                        strAbilities += entry
-                        strAbilities += "‽"
-            fullEntry = (skill, strAbilities, desc, scoreBase)
-            if skill not in extantSkills:
-                curUsers.execute("INSERT INTO skills (name, strAbilities, desc, scoreBase) VALUES (?,?,?,?)", fullEntry)
-            else:
+                        entry = str(nameAbility+"§"+descAbility)
+                        strAbilities = strAbilities+str(entry+"‽")
+            if (skill,) in extantSkills:
                 fullEntry = (strAbilities, desc, scoreBase, skill)
                 curUsers.execute("UPDATE skills SET strAbilities=?, desc=?, scoreBase=? WHERE name=?", fullEntry)
+            else:
+                fullEntry = (skill, strAbilities, desc, scoreBase)
+                curUsers.execute("INSERT INTO skills (name, strAbilities, desc, scoreBase) VALUES (?,?,?,?)", fullEntry)
         conUsers.commit()
 
 # Defining Functions
@@ -608,6 +610,9 @@ def startDB():  # We need to initialize a few databases using sqlite3
         conUsers.execute('INSERT INTO users (userID, passHash, isAdmin, isBanned, banExpy, MFAEnabled, token) VALUES (?,?,?,?,?,?,?)', fooargs)
         conUsers.execute('''CREATE TABLE skills
                             (name, strAbilities, descr, scoreBase)''')
+        conUsers.execute('''CREATE TABLE characters
+                            (name, user, strConsumables, strAptitudes, strDerived, strFlavour, strCurrency, strRep,
+                             strSwitches, strSkills, strAttributes''')
         conUsers.commit()
     print("Users Database Loaded")
 
