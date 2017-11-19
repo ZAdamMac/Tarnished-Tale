@@ -10,7 +10,7 @@ import bcrypt
 import configparser
 import datetime
 import html5lib
-from html5lib import sanitizer
+from html5lib.filters import sanitizer
 import json
 import logging
 import logging.handlers
@@ -392,6 +392,16 @@ async def authAdmin(message, sock):  # simple authentication of the admin connec
 
 async def taskTx(sock, message, mtype):  # a poor implementation of an output coroutine.
     global revertProtocol
+    tp = html5lib.getTreeBuilder("dom")
+    p = html5lib.HTMLParser(tree=tp)
+    tw = html5lib.getTreeWalker("dom")
+    parsedTX = p.parse(message)
+    cleanTX = sanitizer.Filter(tw(parsedTX))
+    s = html5lib.serializer.HTMLSerializer()
+    pretx = s.serialize(cleanTX)
+    tx = ''
+    for item in pretx:
+        tx += item
     if message == b"200":
         await sock.send("Goodbye.")
         await sock.close()
@@ -400,11 +410,9 @@ async def taskTx(sock, message, mtype):  # a poor implementation of an output co
         await sock.send("Authentication Successful, you are now the admin terminal.")
     else:
         if revertProtocol:
-            tx = p.parse(message)
-            await sock.send(str(tx))
+            await sock.send(tx)
             return
         else:
-            tx = p.parse(message)
             await sock.send(json.dumps({"MSG_TYPE":mtype, "MSG":tx}))
             return
 
@@ -587,10 +595,6 @@ def bootRenew():  # Special world-renew called only on server launch.
         w.rebuild()
     conWorld.commit()
 
-def startSanitizer():
-    global p
-    p = html5lib.HTMLParser(tokenizer=sanitizer.HTMLSanitizer)
-
 # Initialize the Config Parser&Fetch Globals, Build Queues, all that stuff
 global abspathHome; abspathHome = os.getcwd()
 global abspathBaseconfig; abspathBaseConfig = os.path.join(abspathHome, "Configuration/server_config.txt")
@@ -630,7 +634,6 @@ announce()
 startSSL()
 startLogging()
 startDB()
-startSanitizer()
 print("Great, starting service.")
 global running; running = True
 if baseConfig.getboolean("Network Configuration", "TLS") is True:
