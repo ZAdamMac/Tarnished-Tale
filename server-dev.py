@@ -465,9 +465,8 @@ async def delay_by(seconds, tofinal):
 async def broadcastGlobal(message):
     for player in sessions:
         sock = sessions[player]
-        tx = p.parse(message)
+        tx = message
         await sock.send(tx)
-
 
 async def sysKick(player, reason, ban, lengthBan):
     try:
