@@ -395,7 +395,7 @@ async def taskTx(sock, message, mtype):  # a poor implementation of an output co
     tp = html5lib.getTreeBuilder("dom")
     p = html5lib.HTMLParser(tree=tp)
     tw = html5lib.getTreeWalker("dom")
-    parsedTX = p.parse(message)
+    parsedTX = p.parseFragment(message)
     cleanTX = sanitizer.Filter(tw(parsedTX))
     s = html5lib.serializer.HTMLSerializer()
     pretx = s.serialize(cleanTX)
