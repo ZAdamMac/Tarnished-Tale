@@ -822,3 +822,9 @@ else:
     start_server = ws.serve(serveIn, 'localhost', portIn)
 asyncio.get_event_loop().run_until_complete(start_server)
 asyncio.get_event_loop().run_forever()
+
+# TODO future pushing goes to DEV you idiot!
+# TODO Fix characterSheet, have it Do The Things Right.
+# TODO Global Room UUID instead of serial. Has to be global irrespective of worlds.
+# TODO Exits Table?
+# TODO NPCBASE and NPCMOBS TABLE
