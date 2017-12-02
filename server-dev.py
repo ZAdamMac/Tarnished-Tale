@@ -105,6 +105,7 @@ class characterSheet(object):  #  A temporary object to hold a character for man
         self.target = targetCharacter #TODO Implement in full
         curUsers.execute("SELECT * FROM characters WHERE name=?", (targetCharacter,))
         self.compressed = curUsers.fetchall()
+        self.target, self.owner, self.strConsumables, self.strAptitudes, self.strDerived, self.strFlavour, self.strCurrency, self.strRep, self.strSwitches, self.strSkills, self.strAttributes, self.strEquipment = self.compressed
 
 
 class skillLoader(object):
@@ -593,9 +594,18 @@ def startDB():  # We need to initialize a few databases using sqlite3
     curUsers = conUsers.cursor()
 
     if not isDB:
-        print("Couldn't find existing users.db, generating new.")
-        conUsers.execute('''CREATE TABLE users
-                            (userID, passHash, isAdmin, isBanned, banExpy, MFAEnabled, token)''')
+        print("Couldn't find existing users table, the database is missing. Generating new.")
+        conUsers.execute('''CREATE TABLE users (
+                            userSID int NOT NULL AUTO_INCREMENT,
+                            userID,
+                            passHash,
+                            isAdmin,
+                            isBanned,
+                            banExpy,
+                            MFAEnabled,
+                            token,
+                            PRIMARY KEY (userSID)
+                        );''')
         print("Naturally you will need an admin account.")
         uid = input("Username:")
         match = False
@@ -608,12 +618,126 @@ def startDB():  # We need to initialize a few databases using sqlite3
                 match = True
         fooargs = [uid, bcrypt.hashpw(pass1.encode('utf8'), bcrypt.gensalt()), True, False, 0, False, 0]
         conUsers.execute('INSERT INTO users (userID, passHash, isAdmin, isBanned, banExpy, MFAEnabled, token) VALUES (?,?,?,?,?,?,?)', fooargs)
-        conUsers.execute('''CREATE TABLE skills
-                            (name, strAbilities, descr, scoreBase)''')
+        conUsers.execute('''CREATE TABLE skillbase
+                            (skillSID int NOT NULL AUTO_INCREMENT,
+                            nameSkill, 
+                            strAbilities, 
+                            descr, 
+                            scoreBase,
+                            PRIMARY KEY (skillSID))''')
         conUsers.execute('''CREATE TABLE characters
-                            (name, user, strConsumables, strAptitudes, strDerived, strFlavour, strCurrency, strRep,
-                             strSwitches, strSkills, strAttributes''')
+                            (charSID int NOT NULL AUTO_INCREMENT, 
+                            nameCharacter, 
+                            ownerSID,
+                            shortDesc,
+                            longDesc,
+                            raceSID,
+                            gender,
+                            HPMax,
+                            HPcurrent,
+                            STR,
+                            DEX,
+                            CON,
+                            INT,
+                            WIS,
+                            CHA,
+                            FOR,
+                            WIL,
+                            LUCK,
+                            factorDef,
+                            dodgeChance,
+                            PRIMARY KEY (charSID)
+                            FOREIGN KEY (ownerSID) REFERENCES users(userSID)
+                            FOREIGN KEY (raceSID) REFERENCES races(raceSID)
+                            );''')
+        conUsers.execute('''CREATE TABLE races(
+                            raceSID int NOT NULL AUTO_INCREMENT,
+                            nameRace,
+                            helpText,
+                            dSTR,
+                            dDEX,
+                            dCON,
+                            dINT,
+                            dWIS,
+                            dCHA,
+                            nativeAttributes,
+                            PRIMARY KEY (raceSID)
+                            );''')
+        conUsers.execute('''CREATE TABLE skillscores(
+                            character,
+                            skill,
+                            score,
+                            FOREIGN KEY (character) REFERENCES characters(characterSID)
+                            FOREIGN KEY (skill) REFERENCES skillbase(skillSID)
+                            );''')
+        conUsers.execute('''CREATE TABLE switchbase(
+                            switch int NOT NULL AUTO_INCREMENT,
+                            purpose,
+                            PRIMARY KEY (switch)
+                            );''')
+        conUsers.execute('''CREATE TABLE charswitches(
+                            character,
+                            switch,
+                            state
+                            FOREIGN KEY (character) REFERENCES characters(characterSID)
+                            FOREIGN KEY (switch) REFERENCES switchbase(switch) 
+                            );''')
+        conUsers.execute('''CREATE TABLE cashbase(
+                            currepID int NOT NULL AUTO_INCREMENT,
+                            currepName,
+                            currepHelpText,
+                            PRIMARY KEY (currepID)
+                            );''')
+        conUsers.execute('''CREATE TABLE cashbase(
+                            character,
+                            currepID,
+                            score,
+                            FOREIGN KEY (character) REFERENCES characters(characterSID)
+                            FOREIGN KEY (currepID) REFERENCES cashbase(currepID)
+                            );''')
+        conUsers.execute('''CREATE TABLE atribbase(
+                            atribID int NOT NULL AUTO_INCREMENT,
+                            atribName,
+                            atribHelp,
+                            PRIMARY KEY (atribID)
+                            );''')
+        conUsers.execute('''CREATE TABLE atribscores(
+                            character,
+                            attribute,
+                            expy,
+                            FOREIGN KEY (character) REFERENCES characters(characterSID)
+                            FOREIGN KEY (attribute) REFERENCES atribbase(atribID)
+                            );''')
+        conUsers.execute('''CREATE TABLE itembase(
+                            itemSID int NOT NULL AUTO_INCREMENT,
+                            itemName,
+                            lookDesc,
+                            helpText,
+                            startingUses,
+                            equipsTo,
+                            isWeapon,
+                            attack,
+                            defense,
+                            stringEffects,
+                            PRIMARY KEY (itemSID)
+                            );''')
+        conUsers.execute('''CREATE TABLE globalinventory(
+                            itemInstanceID int NOT NULL AUTO_INCREMENT,
+                            item,
+                            owner,
+                            location,
+                            remainingUses,
+                            equippedSlot,
+                            modDef,
+                            modAtk,
+                            modEffect,
+                            PRIMARY KEY (itemInstanceID),
+                            FOREIGN KEY (item) REFERENCES itembase(itemSID),
+                            FOREIGN KEY (owner) REFERENCES characters(characterSID),
+                            FOREIGN KEY (location) REFERENCES rooms(roomUUID),
+                            );''')
         conUsers.commit()
+        print("Database tables created.")
     print("Users Database Loaded")
 
     global conWorld
