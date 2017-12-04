@@ -39,9 +39,10 @@ class worldLoader(object): #A handler class for worlds used in first-time spin u
         global curWorld
         systemLogger.info("Now Loading World: %s", self.name)
         if not extantWorld(self.name):
-            buildstatement = ("CREATE TABLE %s (room, name, descr, listContents, listStaticNPCs, listExits, listScripts)" % self.name)
-            curWorld.execute(buildstatement)
-            conWorld.commit()
+            args = (self.name, self.roguelike, self.Dynamic, self.rateRefresh, self.scry)
+            curUsers.execute("INSERT INTO worlds (name, roguelike, dynamic, rateDynamic, scryHint) VALUES (?,?,?,?,?,)", args)
+            curUsers.execute("SELECT worldSID FROM worlds WHERE name=?", (self.name,))
+            self.worldSID = curUsers.fetchall()
         rooms = []
         roomNums = []
         for root, null, roomfiles in os.walk(os.path.join(abspathWorlds, self.name)):
@@ -50,7 +51,7 @@ class worldLoader(object): #A handler class for worlds used in first-time spin u
                     pass
                 else:
                     roomNums.append(room)  # Also adds the roomnumber to an index to be used in a later step.
-        curWorld.execute("SELECT room FROM %s" % self.name)  # You should never do this anywhere a user could touch it.
+        curWorld.execute("SELECT fileRoom FROM rooms WHERE world=?", (self.worldSID,))
         extantRooms = curWorld.fetchall()
         newRooms = diff(roomNums, extantRooms)
         if self.Dynamic:
@@ -60,7 +61,7 @@ class worldLoader(object): #A handler class for worlds used in first-time spin u
             work = newRooms
             systemLogger.info("%s is Static, updating only newly-added rooms", self.name)
         for r in work:
-            rooms.append(roomLoader(r, self.name))
+            rooms.append(roomLoader(r, self.name, self.worldSID))
         counter = 0
         for r in rooms:
             counter =+ 1
@@ -69,12 +70,13 @@ class worldLoader(object): #A handler class for worlds used in first-time spin u
 
 class roomLoader(object):
 
-    def __init__(self, fname, parent):
+    def __init__(self, fname, parent, worldSID):
         self.fname = fname
         self.world = parent
+        self.worldSID = worldSID
 
     def insert(self):
-        systemLogger.debug("Starting to parse %s in %s", self.fname, self.world)
+        systemLogger.debug("Starting to parse %s in world %s", self.fname, self.world)
 
         tempParser = configparser.ConfigParser()
         tempParser.read(os.path.join(abspathWorlds, os.path.join(self.world, self.fname)))
@@ -85,17 +87,17 @@ class roomLoader(object):
         npcs = None #  npcs temporarily unimplemented
         exits = getListExits(tempParser)
         scripts = None  # not implemented obviously.
-        stmnt = ("SELECT room FROM %s WHERE room=?" % self.world)
-        confuser = curWorld.execute(stmnt, (self.fname,)).fetchall()
+        stmnt = ("SELECT roomUUID FROM rooms WHERE worldSID=? AND fileRoom=?")
+        confuser = curWorld.execute(stmnt, (self.worldSID, self.fname,)).fetchall()
         if len(confuser) == 0:
-            systemLogger.debug("This is a new world, inserting.")
-            stmnt=("INSERT INTO %s VALUES (?,?,?,?,?,?,?)" % self.world)
-            curWorld.execute(stmnt, (id, roomName, descr, listContents, npcs, exits, scripts) )
+            systemLogger.debug("This is a new room, inserting.")
+            stmnt=("INSERT INTO rooms (fileRoom, titleRoom, description, world, stringScripts) VALUES (?,?,?,?,?)")
+            curWorld.execute(stmnt, (id, roomName, descr, self.worldSID, scripts) )
             conWorld.commit()
         else:
             systemLogger.debug("This room already exists, updating.")
-            stmnt=("UPDATE %s SET name=?, descr=?, listContents=?, listStaticNPCs=?, listExits=?, listScripts=? WHERE room=?" % self.world)
-            curWorld.execute(stmnt, (roomName, descr, listContents, npcs, exits, scripts, id, ))
+            stmnt=("UPDATE rooms SET name=?, descr=?, stringScripts=? WHERE roomUUID=?" % self.world)
+            curWorld.execute(stmnt, (roomName, descr, listContents, npcs, exits, scripts, confuser, ))
             conWorld.commit()
         tempParser = None
 
@@ -362,7 +364,7 @@ def extantUser(uname):
         return True
 
 def extantWorld(wname):
-    curWorld.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (wname,))
+    curWorld.execute("SELECT name FROM worlds WHERE name=?", (wname,))
     extant = curWorld.fetchall()
     if len(extant) == 0:
         return False
@@ -770,6 +772,7 @@ def startDB():  # We need to initialize a few databases using sqlite3
         conUsers.execute('''CREATE TABLE rooms(
                             roomUUID int NOT NULL AUTO_INCREMENT,
                             world,
+                            fileRoom,
                             titleRoom,
                             description,
                             stringScripts,
