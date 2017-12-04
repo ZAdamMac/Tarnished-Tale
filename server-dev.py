@@ -776,6 +776,19 @@ def startDB():  # We need to initialize a few databases using sqlite3
                             PRIMARY KEY (roomUUID),
                             FOREIGN KEY (world) REFERENCES worlds(worldSID),
                             );''')
+        conUsers.execute('''CREATE TABLE doors(
+                            doorID int NOT NULL AUTO_INCREMENT,
+                            description,
+                            linkA,
+                            linkB,
+                            isClosed,
+                            isLocked,
+                            lockDF,
+                            burstDF,
+                            PRIMARY KEY (doorID),
+                            FOREIGN KEY (linkA) REFERENCES rooms(roomUUID),
+                            FOREIGN KEY (linkB) REFERENCES rooms(roomUUID),
+                            );''')
         conUsers.commit()
         print("Database tables created.")
     print("Users Database Loaded")
@@ -865,4 +878,3 @@ asyncio.get_event_loop().run_forever()
 
 # TODO future pushing goes to DEV you idiot!
 # TODO Fix characterSheet, have it Do The Things Right.
-# TODO Exits Table?
