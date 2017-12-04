@@ -703,10 +703,12 @@ def startDB():  # We need to initialize a few databases using sqlite3
                             );''')
         conUsers.execute('''CREATE TABLE atribscores(
                             character,
+                            npc,
                             attribute,
                             expy,
                             FOREIGN KEY (character) REFERENCES characters(characterSID)
                             FOREIGN KEY (attribute) REFERENCES atribbase(atribID)
+                            FOREIGN KEY (npc) REFERENCES instmobs(mobInstID)
                             );''')
         conUsers.execute('''CREATE TABLE itembase(
                             itemSID int NOT NULL AUTO_INCREMENT,
@@ -735,6 +737,26 @@ def startDB():  # We need to initialize a few databases using sqlite3
                             FOREIGN KEY (item) REFERENCES itembase(itemSID),
                             FOREIGN KEY (owner) REFERENCES characters(characterSID),
                             FOREIGN KEY (location) REFERENCES rooms(roomUUID),
+                            );''')
+        conUsers.execute('''CREATE TABLE mobsbase(
+                            mobSpecSID int NOT NULL AUTO_INCREMENT,
+                            mobName,
+                            maxHP,
+                            ATK,
+                            DEF,
+                            DMG,
+                            hostility,
+                            stringDropsTable,
+                            stringDefaultAtribs,
+                            PRIMARY KEY (mobSpecSID),
+                            );''')
+        conUsers.execute('''CREATE TABLE instmobs(
+                            mobInstID int NOT NULL AUTO_INCREMENT
+                            curHP
+                            position,
+                            hostility,
+                            PRIMARY KEY (mobInstID),
+                            FOREIGN KEY (position) REFERENCES rooms(roomUUID),
                             );''')
         conUsers.commit()
         print("Database tables created.")
