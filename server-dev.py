@@ -758,6 +758,24 @@ def startDB():  # We need to initialize a few databases using sqlite3
                             PRIMARY KEY (mobInstID),
                             FOREIGN KEY (position) REFERENCES rooms(roomUUID),
                             );''')
+        conUsers.execute('''CREATE TABLE worlds(
+                            worldSID int NOT NULL AUTO_INCREMENT,
+                            name,
+                            roguelike,
+                            dynamic,
+                            rateDynamic,
+                            scryHint,
+                            PRIMARY KEY (worldSID),
+                            );''')
+        conUsers.execute('''CREATE TABLE rooms(
+                            roomUUID int NOT NULL AUTO_INCREMENT,
+                            world,
+                            titleRoom,
+                            description,
+                            stringScripts,
+                            PRIMARY KEY (roomUUID),
+                            FOREIGN KEY (world) REFERENCES worlds(worldSID),
+                            );''')
         conUsers.commit()
         print("Database tables created.")
     print("Users Database Loaded")
@@ -847,6 +865,4 @@ asyncio.get_event_loop().run_forever()
 
 # TODO future pushing goes to DEV you idiot!
 # TODO Fix characterSheet, have it Do The Things Right.
-# TODO Global Room UUID instead of serial. Has to be global irrespective of worlds.
 # TODO Exits Table?
-# TODO NPCBASE and NPCMOBS TABLE
