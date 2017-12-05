@@ -85,10 +85,10 @@ class roomLoader(object):
         descr = tempParser.get("Description", "Description")
         listContents = None # Inventory is unsupported and therefore nope.
         npcs = None #  npcs temporarily unimplemented
-        exits = getListExits(tempParser)
         scripts = None  # not implemented obviously.
         stmnt = ("SELECT roomUUID FROM rooms WHERE worldSID=? AND fileRoom=?")
         confuser = curWorld.execute(stmnt, (self.worldSID, self.fname,)).fetchall()
+        exits = getListExits(tempParser, confuser)
         if len(confuser) == 0:
             systemLogger.debug("This is a new room, inserting.")
             stmnt=("INSERT INTO rooms (fileRoom, titleRoom, description, world, stringScripts) VALUES (?,?,?,?,?)")
@@ -147,13 +147,29 @@ class skillLoader(object):
         conUsers.commit()
 
 # Defining Functions
-def getListExits(parser):  # A function that parses the exit syntax to build the right list.
-    listExits = "‽"
-    exitDirections = parser.options("Exits")
-    for door in exitDirections:
-        exitString = parser.get("Exits", door)
-        listExits = listExits+str(door+"§"+exitString)+"‽"
-    return listExits
+def getListExits(parser, parent):  # A function that parses the exit syntax to build the right list.
+    listExits = parser.options("Exits")
+    for door in listExits:
+        nameDoor = door
+        doorString = parser.get("Exits", door)
+        firstSplits = doorString.split("§")
+        desc, identifiers, isClosed, isLocked, lockDF, burstDF = firstSplits
+        worldName, fileRoom = identifiers.split("/")
+        curUsers.execute("SELECT worldSID FROM worlds WHERE name=?", (worldName,))
+        worldSID = curUsers.fetchall()
+        curUsers.execute("SELECT roomUUID FROM rooms WHERE fileRoom=? AND world=?", (fileRoom, worldSID))
+        roomA = curUsers.fetchall()
+        roomB = parent
+        existanceCheck = curUsers.execute("SELECT doorID FROM doors WHERE linkA=? AND linkB=?", (roomA, roomB))
+        args = (desc, roomA, roomB, isClosed, isLocked, lockDF, burstDF)
+        if len(existanceCheck) == 0:
+            curUsers.execute("INSERT INTO doors (description, linkA, linkB, isClosed, isLocked, lockDF, burstDF) VALUES (?,?,?,?,?,?,?)", args)
+        else:
+            args = (desc, roomA, roomB, isClosed, isLocked, lockDF, burstDF, existanceCheck)
+            curUsers.execute('''UPDATE doors
+                                SET description=?, linkA=?, linkB=?, isClosed=?, isLocked=?, lockDF=?, burstDF=?
+                                WHERE doorID=?''', args)
+    conUsers.commit()
 
 def diff(first, second):  # simple function for diffing two lists.
     second = set(second)
