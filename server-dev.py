@@ -645,7 +645,8 @@ def startDB():  # We need to initialize a few databases using sqlite3
                             PRIMARY KEY (skillSID))''')
         conUsers.execute('''CREATE TABLE characters
                             (charSID int NOT NULL AUTO_INCREMENT, 
-                            nameCharacter, 
+                            nameCharacter,
+                            position, 
                             ownerSID,
                             shortDesc,
                             longDesc,
@@ -666,6 +667,7 @@ def startDB():  # We need to initialize a few databases using sqlite3
                             dodgeChance,
                             PRIMARY KEY (charSID)
                             FOREIGN KEY (ownerSID) REFERENCES users(userSID)
+                            FOREIGN KEY (position) REFERENCES rooms(roomUUID)
                             FOREIGN KEY (raceSID) REFERENCES races(raceSID)
                             );''')
         conUsers.execute('''CREATE TABLE races(
