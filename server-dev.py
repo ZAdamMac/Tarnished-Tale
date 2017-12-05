@@ -120,7 +120,7 @@ class skillLoader(object):
         self.reader.read(self.abs)
         listSkills = self.reader.sections()
 
-        curUsers.execute("SELECT name FROM skills")
+        curUsers.execute("SELECT nameSkill FROM skillbase")
         extantSkills = curUsers.fetchall()
 
         for skill in listSkills:
@@ -140,7 +140,7 @@ class skillLoader(object):
                         strAbilities = strAbilities+str(entry+"‽")
             if (skill,) in extantSkills:
                 fullEntry = (strAbilities, desc, scoreBase, skill)
-                curUsers.execute("UPDATE skills SET strAbilities=?, desc=?, scoreBase=? WHERE name=?", fullEntry)
+                curUsers.execute("UPDATE skillbase SET strAbilities=?, desc=?, scoreBase=? WHERE name=?", fullEntry)
             else:
                 fullEntry = (skill, strAbilities, desc, scoreBase)
                 curUsers.execute("INSERT INTO skills (name, strAbilities, desc, scoreBase) VALUES (?,?,?,?)", fullEntry)
@@ -640,7 +640,7 @@ def startDB():  # We need to initialize a few databases using sqlite3
                             (skillSID int NOT NULL AUTO_INCREMENT,
                             nameSkill, 
                             strAbilities, 
-                            descr, 
+                            desc, 
                             scoreBase,
                             PRIMARY KEY (skillSID))''')
         conUsers.execute('''CREATE TABLE characters
