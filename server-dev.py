@@ -101,14 +101,11 @@ class roomLoader(object):
             conWorld.commit()
         tempParser = None
 
-class characterSheet(object):  #  A temporary object to hold a character for manipulations from ability, and other checks.
+class characterGenerator(object):
 
-    def __init__(self, targetCharacter):  # on init, briefly grab read from the SQL db and process accordingly
-        self.target = targetCharacter #TODO Implement in full
-        curUsers.execute("SELECT * FROM characters WHERE name=?", (targetCharacter,))
-        self.compressed = curUsers.fetchall()
-        self.target, self.owner, self.strConsumables, self.strAptitudes, self.strDerived, self.strFlavour, self.strCurrency, self.strRep, self.strSwitches, self.strSkills, self.strAttributes, self.strEquipment = self.compressed
-
+    def __init__(self, requester):
+        self.socket = requester
+        #TODO chargen implementation begins here.
 
 class skillLoader(object):
 
@@ -201,6 +198,13 @@ async def categorize(rx, sock):
     elif catRX == "ability":
         tx = await taskAbility(rx, sock)
         return (tx, "ROOM")
+    elif catRX == "character":
+        if contentsRX[0].lower() == "birth":
+            tx = await taskCharGen(rx,sock)
+            return (tx, "ROOM")
+        else:
+            tx = await wakeChar(rx, sock)
+            return (tx, "ROOM")
     elif catRX is not None:
         tx = str("That request belongs to the %s category!" % catRX)
         return tx
@@ -309,8 +313,38 @@ async def remoteViewer(target): # as roomFormat, but takes a target room for inp
     tx, dropped = txReturned.split("<br>There are no visible exits from this room.")
     return tx
 
+async def taskCharGen(message, requester):
+    sockReq = requester
+
+    naming = True
+    while naming:
+        taskTx(sockReq, "Please enter a name for your new character:", "ROOM")
+        nameNew = await sockReq.recv()
+        nameExtant = curUsers.execute("SELECT name FROM characters WHERE name=?", (nameNew,)).fetchall()
+        if len(nameExtant) != 0:
+            taskTx(sockReq, "That name is already taken, please choose another:", "Room")
+        else:
+            global naming; naming = False
+
+    racing = True
+    while racing:
+        taskTx(sockReq, prettyPrintRaces(), "ROOM")
+        raceNew = await sockReq.recv()
+        raceValid = curUsers.execute("SELECT raceSID FROM races WHERE raceName=?", (raceNew,))
+        if len (raceValid) == 0:
+            taskTx(sockReq, "That race is not valid, please consult the above list and try again.", "ROOM")
+        else:
+            global racing; racing = False
+    # code to initialize aptitudes here!
+    setAptitudes = True
+    while setAptitudes:
+        tx = printApts(nameNew)
+
+    #Skill Code Goes Here
+    #Do racial attributes
+    #Fire!
+
 async def taskSys(message, requester):
-    print("Made it to TaskSys")
     msg = message
     contents = msg.split(" ")
     operation = contents[0].lower()
