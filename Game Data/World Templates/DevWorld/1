@@ -6,8 +6,8 @@ Description: You are trapped in an empty white room, with boring white walls, a 
 
 [Exits]
 # This entry describes a simple door aimed at the room in "DevWorld/2" which is closed, locked,
-# and has a difficulty factor of 1.
-north: a boring white door.§DevWorld/2§True§True§1
+# and has a difficulty factor of 1 to pick and 1 to break.
+north: a boring white door.§DevWorld/2§True§True§1§1
 
 [Callable]
 

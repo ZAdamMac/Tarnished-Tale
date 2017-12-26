@@ -39,9 +39,10 @@ class worldLoader(object): #A handler class for worlds used in first-time spin u
         global curWorld
         systemLogger.info("Now Loading World: %s", self.name)
         if not extantWorld(self.name):
-            buildstatement = ("CREATE TABLE %s (room, name, descr, listContents, listStaticNPCs, listExits, listScripts)" % self.name)
-            curWorld.execute(buildstatement)
-            conWorld.commit()
+            args = (self.name, self.roguelike, self.Dynamic, self.rateRefresh, self.scry)
+            curUsers.execute("INSERT INTO worlds (name, roguelike, dynamic, rateDynamic, scryHint) VALUES (?,?,?,?,?,)", args)
+            curUsers.execute("SELECT worldSID FROM worlds WHERE name=?", (self.name,))
+            self.worldSID = curUsers.fetchall()
         rooms = []
         roomNums = []
         for root, null, roomfiles in os.walk(os.path.join(abspathWorlds, self.name)):
@@ -50,7 +51,7 @@ class worldLoader(object): #A handler class for worlds used in first-time spin u
                     pass
                 else:
                     roomNums.append(room)  # Also adds the roomnumber to an index to be used in a later step.
-        curWorld.execute("SELECT room FROM %s" % self.name)  # You should never do this anywhere a user could touch it.
+        curWorld.execute("SELECT fileRoom FROM rooms WHERE world=?", (self.worldSID,))
         extantRooms = curWorld.fetchall()
         newRooms = diff(roomNums, extantRooms)
         if self.Dynamic:
@@ -60,7 +61,7 @@ class worldLoader(object): #A handler class for worlds used in first-time spin u
             work = newRooms
             systemLogger.info("%s is Static, updating only newly-added rooms", self.name)
         for r in work:
-            rooms.append(roomLoader(r, self.name))
+            rooms.append(roomLoader(r, self.name, self.worldSID))
         counter = 0
         for r in rooms:
             counter =+ 1
@@ -69,12 +70,13 @@ class worldLoader(object): #A handler class for worlds used in first-time spin u
 
 class roomLoader(object):
 
-    def __init__(self, fname, parent):
+    def __init__(self, fname, parent, worldSID):
         self.fname = fname
         self.world = parent
+        self.worldSID = worldSID
 
     def insert(self):
-        systemLogger.debug("Starting to parse %s in %s", self.fname, self.world)
+        systemLogger.debug("Starting to parse %s in world %s", self.fname, self.world)
 
         tempParser = configparser.ConfigParser()
         tempParser.read(os.path.join(abspathWorlds, os.path.join(self.world, self.fname)))
@@ -83,30 +85,27 @@ class roomLoader(object):
         descr = tempParser.get("Description", "Description")
         listContents = None # Inventory is unsupported and therefore nope.
         npcs = None #  npcs temporarily unimplemented
-        exits = getListExits(tempParser)
         scripts = None  # not implemented obviously.
-        stmnt = ("SELECT room FROM %s WHERE room=?" % self.world)
-        confuser = curWorld.execute(stmnt, (self.fname,)).fetchall()
+        stmnt = ("SELECT roomUUID FROM rooms WHERE worldSID=? AND fileRoom=?")
+        confuser = curWorld.execute(stmnt, (self.worldSID, self.fname,)).fetchall()
+        exits = getListExits(tempParser, confuser)
         if len(confuser) == 0:
-            systemLogger.debug("This is a new world, inserting.")
-            stmnt=("INSERT INTO %s VALUES (?,?,?,?,?,?,?)" % self.world)
-            curWorld.execute(stmnt, (id, roomName, descr, listContents, npcs, exits, scripts) )
+            systemLogger.debug("This is a new room, inserting.")
+            stmnt=("INSERT INTO rooms (fileRoom, titleRoom, description, world, stringScripts) VALUES (?,?,?,?,?)")
+            curWorld.execute(stmnt, (id, roomName, descr, self.worldSID, scripts) )
             conWorld.commit()
         else:
             systemLogger.debug("This room already exists, updating.")
-            stmnt=("UPDATE %s SET name=?, descr=?, listContents=?, listStaticNPCs=?, listExits=?, listScripts=? WHERE room=?" % self.world)
-            curWorld.execute(stmnt, (roomName, descr, listContents, npcs, exits, scripts, id, ))
+            stmnt=("UPDATE rooms SET name=?, descr=?, stringScripts=? WHERE roomUUID=?" % self.world)
+            curWorld.execute(stmnt, (roomName, descr, listContents, npcs, exits, scripts, confuser, ))
             conWorld.commit()
         tempParser = None
 
-class characterSheet(object):  #  A temporary object to hold a character for manipulations from ability, and other checks.
+class characterGenerator(object):
 
-    def __init__(self, targetCharacter):  # on init, briefly grab read from the SQL db and process accordingly
-        self.target = targetCharacter #TODO Implement in full
-        curUsers.execute("SELECT * FROM characters WHERE name=?", (targetCharacter,))
-        self.compressed = curUsers.fetchall()
-        self.target, self.owner, self.strConsumables, self.strAptitudes, self.strDerived, self.strFlavour, self.strCurrency, self.strRep, self.strSwitches, self.strSkills, self.strAttributes, self.strEquipment = self.compressed
-
+    def __init__(self, requester):
+        self.socket = requester
+        #TODO chargen implementation begins here.
 
 class skillLoader(object):
 
@@ -118,7 +117,7 @@ class skillLoader(object):
         self.reader.read(self.abs)
         listSkills = self.reader.sections()
 
-        curUsers.execute("SELECT name FROM skills")
+        curUsers.execute("SELECT nameSkill FROM skillbase")
         extantSkills = curUsers.fetchall()
 
         for skill in listSkills:
@@ -138,20 +137,36 @@ class skillLoader(object):
                         strAbilities = strAbilities+str(entry+"‽")
             if (skill,) in extantSkills:
                 fullEntry = (strAbilities, desc, scoreBase, skill)
-                curUsers.execute("UPDATE skills SET strAbilities=?, desc=?, scoreBase=? WHERE name=?", fullEntry)
+                curUsers.execute("UPDATE skillbase SET strAbilities=?, desc=?, scoreBase=? WHERE name=?", fullEntry)
             else:
                 fullEntry = (skill, strAbilities, desc, scoreBase)
                 curUsers.execute("INSERT INTO skills (name, strAbilities, desc, scoreBase) VALUES (?,?,?,?)", fullEntry)
         conUsers.commit()
 
 # Defining Functions
-def getListExits(parser):  # A function that parses the exit syntax to build the right list.
-    listExits = "‽"
-    exitDirections = parser.options("Exits")
-    for door in exitDirections:
-        exitString = parser.get("Exits", door)
-        listExits = listExits+str(door+"§"+exitString)+"‽"
-    return listExits
+def getListExits(parser, parent):  # A function that parses the exit syntax to build the right list.
+    listExits = parser.options("Exits")
+    for door in listExits:
+        nameDoor = door
+        doorString = parser.get("Exits", door)
+        firstSplits = doorString.split("§")
+        desc, identifiers, isClosed, isLocked, lockDF, burstDF = firstSplits
+        worldName, fileRoom = identifiers.split("/")
+        curUsers.execute("SELECT worldSID FROM worlds WHERE name=?", (worldName,))
+        worldSID = curUsers.fetchall()
+        curUsers.execute("SELECT roomUUID FROM rooms WHERE fileRoom=? AND world=?", (fileRoom, worldSID))
+        roomA = curUsers.fetchall()
+        roomB = parent
+        existanceCheck = curUsers.execute("SELECT doorID FROM doors WHERE linkA=? AND linkB=?", (roomA, roomB))
+        args = (desc, roomA, roomB, isClosed, isLocked, lockDF, burstDF)
+        if len(existanceCheck) == 0:
+            curUsers.execute("INSERT INTO doors (description, linkA, linkB, isClosed, isLocked, lockDF, burstDF) VALUES (?,?,?,?,?,?,?)", args)
+        else:
+            args = (desc, roomA, roomB, isClosed, isLocked, lockDF, burstDF, existanceCheck)
+            curUsers.execute('''UPDATE doors
+                                SET description=?, linkA=?, linkB=?, isClosed=?, isLocked=?, lockDF=?, burstDF=?
+                                WHERE doorID=?''', args)
+    conUsers.commit()
 
 def diff(first, second):  # simple function for diffing two lists.
     second = set(second)
@@ -183,6 +198,13 @@ async def categorize(rx, sock):
     elif catRX == "ability":
         tx = await taskAbility(rx, sock)
         return (tx, "ROOM")
+    elif catRX == "character":
+        if contentsRX[0].lower() == "birth":
+            tx = await taskCharGen(rx,sock)
+            return (tx, "ROOM")
+        else:
+            tx = await wakeChar(rx, sock)
+            return (tx, "ROOM")
     elif catRX is not None:
         tx = str("That request belongs to the %s category!" % catRX)
         return tx
@@ -291,8 +313,38 @@ async def remoteViewer(target): # as roomFormat, but takes a target room for inp
     tx, dropped = txReturned.split("<br>There are no visible exits from this room.")
     return tx
 
+async def taskCharGen(message, requester):
+    sockReq = requester
+
+    naming = True
+    while naming:
+        taskTx(sockReq, "Please enter a name for your new character:", "ROOM")
+        nameNew = await sockReq.recv()
+        nameExtant = curUsers.execute("SELECT name FROM characters WHERE name=?", (nameNew,)).fetchall()
+        if len(nameExtant) != 0:
+            taskTx(sockReq, "That name is already taken, please choose another:", "Room")
+        else:
+            global naming; naming = False
+
+    racing = True
+    while racing:
+        taskTx(sockReq, prettyPrintRaces(), "ROOM")
+        raceNew = await sockReq.recv()
+        raceValid = curUsers.execute("SELECT raceSID FROM races WHERE raceName=?", (raceNew,))
+        if len (raceValid) == 0:
+            taskTx(sockReq, "That race is not valid, please consult the above list and try again.", "ROOM")
+        else:
+            global racing; racing = False
+    # code to initialize aptitudes here!
+    setAptitudes = True
+    while setAptitudes:
+        tx = printApts(nameNew)
+
+    #Skill Code Goes Here
+    #Do racial attributes
+    #Fire!
+
 async def taskSys(message, requester):
-    print("Made it to TaskSys")
     msg = message
     contents = msg.split(" ")
     operation = contents[0].lower()
@@ -362,7 +414,7 @@ def extantUser(uname):
         return True
 
 def extantWorld(wname):
-    curWorld.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (wname,))
+    curWorld.execute("SELECT name FROM worlds WHERE name=?", (wname,))
     extant = curWorld.fetchall()
     if len(extant) == 0:
         return False
@@ -622,12 +674,13 @@ def startDB():  # We need to initialize a few databases using sqlite3
                             (skillSID int NOT NULL AUTO_INCREMENT,
                             nameSkill, 
                             strAbilities, 
-                            descr, 
+                            desc, 
                             scoreBase,
                             PRIMARY KEY (skillSID))''')
         conUsers.execute('''CREATE TABLE characters
                             (charSID int NOT NULL AUTO_INCREMENT, 
-                            nameCharacter, 
+                            nameCharacter,
+                            position, 
                             ownerSID,
                             shortDesc,
                             longDesc,
@@ -648,6 +701,7 @@ def startDB():  # We need to initialize a few databases using sqlite3
                             dodgeChance,
                             PRIMARY KEY (charSID)
                             FOREIGN KEY (ownerSID) REFERENCES users(userSID)
+                            FOREIGN KEY (position) REFERENCES rooms(roomUUID)
                             FOREIGN KEY (raceSID) REFERENCES races(raceSID)
                             );''')
         conUsers.execute('''CREATE TABLE races(
@@ -703,10 +757,12 @@ def startDB():  # We need to initialize a few databases using sqlite3
                             );''')
         conUsers.execute('''CREATE TABLE atribscores(
                             character,
+                            npc,
                             attribute,
                             expy,
                             FOREIGN KEY (character) REFERENCES characters(characterSID)
                             FOREIGN KEY (attribute) REFERENCES atribbase(atribID)
+                            FOREIGN KEY (npc) REFERENCES instmobs(mobInstID)
                             );''')
         conUsers.execute('''CREATE TABLE itembase(
                             itemSID int NOT NULL AUTO_INCREMENT,
@@ -735,6 +791,58 @@ def startDB():  # We need to initialize a few databases using sqlite3
                             FOREIGN KEY (item) REFERENCES itembase(itemSID),
                             FOREIGN KEY (owner) REFERENCES characters(characterSID),
                             FOREIGN KEY (location) REFERENCES rooms(roomUUID),
+                            );''')
+        conUsers.execute('''CREATE TABLE mobsbase(
+                            mobSpecSID int NOT NULL AUTO_INCREMENT,
+                            mobName,
+                            maxHP,
+                            ATK,
+                            DEF,
+                            DMG,
+                            hostility,
+                            stringDropsTable,
+                            stringDefaultAtribs,
+                            PRIMARY KEY (mobSpecSID),
+                            );''')
+        conUsers.execute('''CREATE TABLE instmobs(
+                            mobInstID int NOT NULL AUTO_INCREMENT
+                            curHP
+                            position,
+                            hostility,
+                            PRIMARY KEY (mobInstID),
+                            FOREIGN KEY (position) REFERENCES rooms(roomUUID),
+                            );''')
+        conUsers.execute('''CREATE TABLE worlds(
+                            worldSID int NOT NULL AUTO_INCREMENT,
+                            name,
+                            roguelike,
+                            dynamic,
+                            rateDynamic,
+                            scryHint,
+                            PRIMARY KEY (worldSID),
+                            );''')
+        conUsers.execute('''CREATE TABLE rooms(
+                            roomUUID int NOT NULL AUTO_INCREMENT,
+                            world,
+                            fileRoom,
+                            titleRoom,
+                            description,
+                            stringScripts,
+                            PRIMARY KEY (roomUUID),
+                            FOREIGN KEY (world) REFERENCES worlds(worldSID),
+                            );''')
+        conUsers.execute('''CREATE TABLE doors(
+                            doorID int NOT NULL AUTO_INCREMENT,
+                            description,
+                            linkA,
+                            linkB,
+                            isClosed,
+                            isLocked,
+                            lockDF,
+                            burstDF,
+                            PRIMARY KEY (doorID),
+                            FOREIGN KEY (linkA) REFERENCES rooms(roomUUID),
+                            FOREIGN KEY (linkB) REFERENCES rooms(roomUUID),
                             );''')
         conUsers.commit()
         print("Database tables created.")
@@ -822,3 +930,6 @@ else:
     start_server = ws.serve(serveIn, 'localhost', portIn)
 asyncio.get_event_loop().run_until_complete(start_server)
 asyncio.get_event_loop().run_forever()
+
+# TODO future pushing goes to DEV you idiot!
+# TODO Fix characterSheet, have it Do The Things Right.
