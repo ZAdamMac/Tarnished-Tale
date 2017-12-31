@@ -53,13 +53,4 @@ The completion of these immediate objectives and any fixes or additions to appea
  - Roguelike Module
 
 ## Want to Help?
-Tarnished Tale is a huge project and we're known to get wedged. There's a few different ways you could help with development!
-
-### Contribute With Code!
-FOSS is beautiful because Pull Requests. If you'd like to contribute to Tarnished Tale by helping directly to develop its code base, consider filing a code request. Stay in touch with ZAdamMac (@patchSavage87 on Twitter) or ask to join the discord. At this early stage, getting the client and the server running for testing purposes is *slightly* ideosyncratic.
-
-### Contribute Financially
-The final product will be some flavour of FOSS, but that doesn't mean I don't have some costs associated with the project. To help with that I've set up a [ko-fi.com](https://ko-fi.com/psavlabs) account to accept microdonations of CAD.
-
-### Join the Discord Anyway!
-Hit @patchSavage87 on Twitter and ask to be added to the Tarnished Tale Development Discord. Even if you aren't into helping to write the code, don't feel comfortable in python, or don't have the time for that level of commitment, being around to act as a sounding board and provide your own insight into the process is an incredibly helpful thing to do!
+Tarnished Tale is a huge project and we're known to get wedged. There's a few different ways you could help with development! Check out our contributing guide in `/docs/`.
