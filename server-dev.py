@@ -144,6 +144,17 @@ class skillLoader(object):
         conUsers.commit()
 
 # Defining Functions
+async def determineState(rx, sock): # New State Handler
+    global sessions
+    if sessions[sock]["state"] == "normal":
+        tx = await categorize(rx, sock)
+    elif sessions[sock]["state"] == "charGen":
+        tx = await doChargen(rx, sock)
+    else:
+        tx = "STATE ERROR -- CONTACT ADMINISTRATOR"
+
+def getUserName: #Simple function that checks to see if it got a valid, usable name. If successful it sets it in the CHARACTERS table, then changes the corresponding socket's state.
+
 def getListExits(parser, parent):  # A function that parses the exit syntax to build the right list.
     listExits = parser.options("Exits")
     for door in listExits:
@@ -177,7 +188,7 @@ async def serveIn(sock, foo):  # The basic runtime of the entire server goes int
     global running
     while running:  # This is stupid, never do this.
         msg = await sock.recv()
-        response, mtype = await categorize(msg, sock)
+        response, mtype = await determineState(msg, sock)
         await taskTx(sock, response, mtype)
 
 async def categorize(rx, sock):
