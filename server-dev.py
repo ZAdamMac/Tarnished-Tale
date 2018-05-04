@@ -405,7 +405,7 @@ async def taskSys(message, requester):
         authed = False # You must always start with the decision that Alice is actually Mallory
         authed = bcrypt.checkpw(contents[2].encode('utf8'), hash.encode('utf8'))
         if authed:
-            sessions.update(dict({session:contents[1]}))
+            sessions.update(dict({session:{"uname":contents[1],"state":"normal","substate":None}}))
             positions.update(dict({session:logroom}))
             welcome = str("You are now known as %s." % contents[1])
             tx = welcome
