@@ -146,9 +146,14 @@ class skillLoader(object):
 # Defining Functions
 async def determineState(rx, sock): # New State Handler
     global sessions
-    if sessions[sock]["state"] == "normal":
+    try:
+        state = sessions[sock]["state"]
+    except KeyError:  # Usually raised because the player isn't logged in yet.
+        state = "normal"
+
+    if state == "normal":
         tx = await categorize(rx, sock)
-    elif sessions[sock]["state"] == "charGen":
+    elif state == "charGen":
         tx = await doChargen(rx, sock)
     else:
         tx = "STATE ERROR -- CONTACT ADMINISTRATOR"
