@@ -157,6 +157,27 @@ async def determineState(rx, sock): # New State Handler
         tx = await doChargen(rx, sock)
     else:
         tx = "STATE ERROR -- CONTACT ADMINISTRATOR"
+    return tx
+
+async def doChargen(rx, sock):
+    global sessions
+    try:
+        substate = sessions[sock]["substate"]
+    except KeyError: #usually caused by having been freshly set here.
+        substate = "naming"
+        sessions.update[{sock:{"substate":"naming"}}]
+
+    if substate == "naming":
+        tx = await getCharacterName(rx, sock)
+    elif substate == "race":
+        tx = await applyRaces(rx, sock)
+    elif substate == "apt":
+        tx = await doAPTBuy(rx, sock)
+    elif substate == "skills":
+        tx = await doSkillBuy(rx, sock)
+    elif substate == "confirmation"
+        tx = await doCharCommit(rx, sock)
+    return tx
 
 def getUserName: #Simple function that checks to see if it got a valid, usable name. If successful it sets it in the CHARACTERS table, then changes the corresponding socket's state.
 
