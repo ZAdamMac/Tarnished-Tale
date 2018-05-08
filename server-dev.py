@@ -185,12 +185,12 @@ async def getCharacterName(rx, sock):
     extName = curUsers.execute('''SELECT characterSID FROM characters WHERE nameCharacter=?''', (name)).fetchall()
     if len(extName) == 0:
         # The name is already taken and a rejection message is returned.
-        tx = (("The name %s is already taken, please select another:" % name), "CHAT")
+        tx = (("The name %s is already taken, please select another:" % name), "ROOM")
     else:
         # Accept the name and add it to the db, then return the greeting message for the next step of the project and update the power.
         curUsers.execute('''INSERT INTO characters (nameCharacter) VALUES ?''', (name))
         curUsers.commit()
-        tx = (("The time has come to select your character's race. For a full list of races, type LIST, or if you already know your selection, type the name of the race in full."), "CHAT")
+        tx = (("The time has come to select your character's race. For a full list of races, type LIST, or if you already know your selection, type the name of the race in full."), "ROOM")
         sessions.update({sock:{"substate":"race"}})
     return tx
 
