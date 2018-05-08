@@ -179,7 +179,21 @@ async def doChargen(rx, sock):
         tx = await doCharCommit(rx, sock)
     return tx
 
-def getUserName: #Simple function that checks to see if it got a valid, usable name. If successful it sets it in the CHARACTERS table, then changes the corresponding socket's state.
+async def getCharacterName(rx, sock):
+   # A simple function to check if the name is valid, and either accept it or reject it, then set the appropriate substate.
+    name = rx.split()[0].lower()
+    extName = curUsers.execute('''SELECT characterSID FROM characters WHERE nameCharacter=?''', (name)).fetchall()
+    if len(extName) == 0:
+        # The name is already taken and a rejection message is returned.
+        tx = (("The name %s is already taken, please select another:" % name), "CHAT")
+    else:
+        # Accept the name and add it to the db, then return the greeting message for the next step of the project and update the power.
+        curUsers.execute('''INSERT INTO characters (nameCharacter) VALUES ?''', (name))
+        curUsers.commit()
+        tx = (("The time has come to select your character's race. For a full list of races, type LIST, or if you already know your selection, type the name of the race in full."), "CHAT")
+        sessions.update({sock:{"substate":"race"}})
+    return tx
+
 
 def getListExits(parser, parent):  # A function that parses the exit syntax to build the right list.
     listExits = parser.options("Exits")
