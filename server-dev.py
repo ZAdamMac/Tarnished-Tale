@@ -101,12 +101,6 @@ class roomLoader(object):
             conWorld.commit()
         tempParser = None
 
-class characterGenerator(object):
-
-    def __init__(self, requester):
-        self.socket = requester
-        #TODO chargen implementation begins here.
-
 class skillLoader(object):
 
     def __init__(self, path):
@@ -189,11 +183,34 @@ async def getCharacterName(rx, sock):
     else:
         # Accept the name and add it to the db, then return the greeting message for the next step of the project and update the power.
         curUsers.execute('''INSERT INTO characters (nameCharacter) VALUES ?''', (name))
-        curUsers.commit()
-        tx = (("The time has come to select your character's race. For a full list of races, type LIST, or if you already know your selection, type the name of the race in full."), "ROOM")
-        sessions.update({sock:{"substate":"race"}})
+        conUsers.commit()
+        charSID = curUsers.execute('''SELECT characterSID FROM characters WHERE nameCharacter=?''', (name)).fetchone[0]
+        tx = ("The time has come to select your character's race. For a full list of races, type LIST, or if you already know your selection, type the name of the race in full.", "ROOM")
+        global sessions
+        sessions.update({sock:{"substate":"race", "charSID":charSID}})
     return tx
 
+async def applyRaces(rx, sock):
+    global sessions
+    command = rx.split(" ")[0].lower()
+    if command == "set":
+        race = rx.split(" ")[1].lower()
+        sid = curUsers.execute("SELECT raceSID FROM races WHERE raceName=?", (race)).fetchone()
+        curUsers.execute('''UPDATE characters SET raceSID=? WHERE characterSID=?''', (sid, sessions[sock]["charSID"]))
+        conUsers.commit()
+        tx = (("Okay, your race is now %s. To confirm this, type CONFIRM, else continue with set, list, or help." % race), "ROOM")
+    elif command == "list":
+        tx = prettyPrintRaces() # TODO DEF
+    elif command == "help":
+        if rx.split(" ").lower()[1] is not None:
+            race = rx.split(" ")[1].lower()
+            tx = raceCard(race) # TODO DEF
+        else:
+            tx = ('''This menu is here for you to select your character's race. To see an available list of races, type "list". For help with a specific race, type help followed by the name of that race.''', "ROOM")
+    elif command == "confirm":
+        sessions.update({sock:{"substate":"apt"}})
+        tx = prettyPrintAptitudes() # TODO DEF
+    return tx
 
 def getListExits(parser, parent):  # A function that parses the exit syntax to build the right list.
     listExits = parser.options("Exits")
