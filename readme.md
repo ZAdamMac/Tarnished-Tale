@@ -3,6 +3,8 @@
 
 To be honest, it's also a decent learning project and object lesson.
 
+***Important***: *Tarnsihed Tale is, as of the time of writing, "shelved" indefinitely. While it remains an interesting project to pick away at the edges of no serious effort is currently being made to develop TT at this time. The development and last stable branches are preserved and set aside for future attempts at completion.*
+
 ## Objectives
 Tarnished Tale has the following objectives:
  - Implement a Full-Featured MUD server accessable by any websockets client;
