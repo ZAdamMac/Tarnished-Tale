@@ -14,10 +14,10 @@ While everyone who contributes to the project is part of our development team, t
 # Feature Requests
 We're always happy to have a look at requests for new features - from the outset, it was always intended for Tarnished Tale to be modular and easily-expanded by anyone who would want to mod it.
 
-## Should This be a Module?
+## Should This be a Sub-Module?
 Not every feature should be added directly to Tarnished Tale CORE, if only to minimize the amount of overhead required to run it and development time required on it. CORE's intended featureset is fairly comprehensive. A list of intended CORE features is part of [the project's wiki](https://www.github.com/ZAdamMac/Tarnished-Tale/wiki). At the moment, only features which enhance/round out those core features or which can only operate from the main thread are being accepted for adoption into CORE.
 
-However, several modules are under development right from the outset, including MAGIC and ROGUELIKE.
+However, several modules are under development right from the outset, including RACES and MAGIC.
 
 ## Filing a Feature Request
 If you have a feature request for CORE, go ahead and open a new issue at this repo. Be sure to head the title of the request with `[RFC]`. The development team for CORE will cross-post your request in announcements to the discord and any other contact trains we happen to be using at the time, opening the request up for commentary by other members. **A minimum of 30 days later**, the same group will decide whether or not to include the feature, or some version of it, into the development process. If the feature is complicated or discussion over it is lively, this decision process may be extended as necessary to allow the matter to resolve.
